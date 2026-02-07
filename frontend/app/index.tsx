@@ -8,6 +8,17 @@ import { StatusBar } from 'expo-status-bar';
 export default function Index() {
   const router = useRouter();
 
+  const handleEnterPlatform = () => {
+    console.log('Button clicked - Navigating to portfolio...');
+    try {
+      router.push('/(tabs)/portfolio');
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback navigation
+      router.replace('/(tabs)/portfolio');
+    }
+  };
+
   return (
     <LinearGradient
       colors={[COLORS.black, COLORS.darkBlue, COLORS.mediumBlue]}
