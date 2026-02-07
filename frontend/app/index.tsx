@@ -58,7 +58,7 @@ export default function Index() {
         {/* CTA Button */}
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => router.push('/(tabs)/portfolio')}
+          onPress={handleEnterPlatform}
           activeOpacity={0.8}
         >
           <LinearGradient
