@@ -45,20 +45,20 @@ export default function Index() {
         </View>
 
         {/* CTA Button */}
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={handleEnterPlatform}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={[COLORS.electricBlue, COLORS.mediumBlue]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.buttonGradient}
+        <Link href="/(tabs)/portfolio" asChild>
+          <Pressable 
+            style={styles.button}
           >
-            <Text style={styles.buttonText}>Enter Platform</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={[COLORS.electricBlue, COLORS.mediumBlue]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>Enter Platform</Text>
+            </LinearGradient>
+          </Pressable>
+        </Link>
 
         <Text style={styles.disclaimer}>Built on Solana • Demo Version</Text>
       </View>
