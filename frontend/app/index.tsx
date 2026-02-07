@@ -1,23 +1,12 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter, Link } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Index() {
   const router = useRouter();
-
-  const handleEnterPlatform = () => {
-    console.log('Button clicked - Navigating to portfolio...');
-    try {
-      router.push('/(tabs)/portfolio');
-    } catch (error) {
-      console.error('Navigation error:', error);
-      // Fallback navigation
-      router.replace('/(tabs)/portfolio');
-    }
-  };
 
   return (
     <LinearGradient
