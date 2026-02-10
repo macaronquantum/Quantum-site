@@ -258,4 +258,11 @@ const styles = StyleSheet.create({
   disconnectText: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.error },
   footer: { alignItems: 'center', marginTop: SPACING.xl, gap: SPACING.xs },
   footerText: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary },
+  errorBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.warning + '40',
+    borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    marginTop: SPACING.lg, maxWidth: 320,
+  },
+  errorBannerText: { flex: 1, fontSize: FONT_SIZES.xs, color: COLORS.warning, lineHeight: 16 },
 });
