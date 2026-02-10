@@ -84,7 +84,12 @@ export default function Profile() {
           <Ionicons name="person-circle-outline" size={72} color={COLORS.textTertiary} />
           <Text style={styles.centerTitle}>No Wallet Connected</Text>
           <Text style={styles.centerSubtitle}>Connect your Solana wallet to manage your account</Text>
-          <TouchableOpacity style={styles.connectBtn} onPress={connectWallet} disabled={connecting} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={[styles.connectBtn, connecting && { opacity: 0.6 }]}
+            onPress={() => { clearError(); connectWallet(); }}
+            disabled={connecting}
+            activeOpacity={0.7}
+          >
             {connecting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
@@ -94,6 +99,18 @@ export default function Profile() {
               </>
             )}
           </TouchableOpacity>
+          {error === 'NO_WALLET' && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="warning" size={16} color={COLORS.warning} />
+              <Text style={styles.errorBannerText}>No Solana wallet detected. Install Phantom.</Text>
+            </View>
+          )}
+          {error && error !== 'NO_WALLET' && (
+            <View style={styles.errorBanner}>
+              <Ionicons name="close-circle" size={16} color={COLORS.error} />
+              <Text style={styles.errorBannerText}>{error}</Text>
+            </View>
+          )}
         </View>
       </SafeAreaView>
     );
