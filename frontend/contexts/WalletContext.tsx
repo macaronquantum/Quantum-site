@@ -261,7 +261,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // Web without extension: redirect to Phantom
         const currentUrl = window.location.origin + window.location.pathname;
-        const dappPubKeyB58 = bs58.encode(Buffer.from(dappKeyPair.current.publicKey));
+        const dappPubKeyB58 = bs58.encode(Buffer.from(getOrCreateKeyPair().publicKey));
 
         const connectParams = new URLSearchParams({
           dapp_encryption_public_key: dappPubKeyB58,
