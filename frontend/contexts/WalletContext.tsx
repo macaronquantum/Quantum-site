@@ -456,9 +456,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
 
         // ── WEB without extension: REDIRECT flow ──
-        // Crypto is already preloaded, keypair is persisted
+        // Clear any old keypair to ensure fresh connection
+        dappKeyPair.current = null;
+        webStorageRemove(KEYPAIR_PUBLIC_KEY);
+        webStorageRemove(KEYPAIR_SECRET_KEY);
+        
+        // Generate fresh keypair for this connection
         const kp = await getOrCreateKeyPair();
         const dappPubKeyB58 = await bs58Encode(Array.from(kp.publicKey));
+        
+        console.log('[Wallet] Fresh keypair for connection, pubKey:', dappPubKeyB58.substring(0, 12) + '...');
         
         const currentUrl = window.location.origin + window.location.pathname;
 
