@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,51 +8,131 @@ import {
   TouchableOpacity,
   Alert,
   Platform,
+  Linking,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useWallet } from '../../contexts/WalletContext';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
 import { StatusBar } from 'expo-status-bar';
+import axios from 'axios';
 
-const TOKEN_PRICE = 2.5; // USD per token
-const REMAINING_ALLOCATION = 5000000; // tokens
-const TOTAL_ALLOCATION = 10000000;
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+const MIN_PURCHASE = 100;
 
 export default function PreSale() {
+  const { address } = useWallet();
+  const [config, setConfig] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
-    walletAddress: '',
+    walletAddress: address || '',
     tokenAmount: '',
   });
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto'>('card');
 
-  const totalPrice = parseFloat(formData.tokenAmount) * TOKEN_PRICE || 0;
-  const allocationPercentage = ((TOTAL_ALLOCATION - REMAINING_ALLOCATION) / TOTAL_ALLOCATION) * 100;
+  useEffect(() => {
+    fetchConfig();
+  }, []);
 
-  const handlePurchase = () => {
+  useEffect(() => {
+    if (address) {
+      setFormData(prev => ({ ...prev, walletAddress: address }));
+    }
+  }, [address]);
+
+  const fetchConfig = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/config`);
+      setConfig(response.data);
+    } catch (error) {
+      console.error('Error fetching config:', error);
+    }
+  };
+
+  const totalPrice = parseFloat(formData.tokenAmount) * (config?.tokenPrice || 2.5);
+  
+  const handlePurchase = async () => {
+    // Validation
     if (!formData.firstName || !formData.lastName || !formData.walletAddress || !formData.tokenAmount) {
       Alert.alert('Missing Information', 'Please fill in all required fields.');
       return;
     }
 
-    Alert.alert(
-      'Purchase Initiated',
-      `Your purchase of ${formData.tokenAmount} QUANTUM tokens (${totalPrice.toFixed(2)} USD) has been initiated.\n\nTokens will be delivered at TGE (Token Generation Event).`,
-      [
-        { text: 'OK', onPress: () => {
+    const tokenAmount = parseInt(formData.tokenAmount);
+    if (tokenAmount < MIN_PURCHASE) {
+      Alert.alert('Invalid Amount', `Minimum purchase is ${MIN_PURCHASE} tokens.`);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Get host URL for success/cancel redirects
+      const hostUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : 'https://quantum-ia-vote.preview.emergentagent.com';
+
+      const purchaseData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        walletAddress: formData.walletAddress,
+        tokenAmount: tokenAmount,
+        paymentMethod: paymentMethod,
+        hostUrl: hostUrl,
+      };
+
+      const response = await axios.post(`${BACKEND_URL}/api/presale/purchase`, purchaseData);
+      
+      if (response.data.success) {
+        if (paymentMethod === 'card' && response.data.checkoutUrl) {
+          // Redirect to Stripe
+          if (typeof window !== 'undefined') {
+            window.location.href = response.data.checkoutUrl;
+          } else {
+            Linking.openURL(response.data.checkoutUrl);
+          }
+        } else if (paymentMethod === 'crypto' && response.data.solanaAddress) {
+          // Show crypto payment instructions
+          Alert.alert(
+            'Crypto Payment',
+            `Please send $${totalPrice.toFixed(2)} USD worth of SOL or USDC to:\n\n${response.data.solanaAddress}\n\nYour purchase will be confirmed once the transaction is received.`,
+            [
+              {
+                text: 'Copy Address',
+                onPress: () => {
+                  // Copy to clipboard functionality would go here
+                  Alert.alert('Copied', 'Address copied to clipboard');
+                }
+              },
+              { text: 'OK' }
+            ]
+          );
+          
           // Reset form
           setFormData({
             firstName: '',
             lastName: '',
             email: '',
-            walletAddress: '',
+            walletAddress: address || '',
             tokenAmount: '',
           });
-        }}
-      ]
-    );
+        }
+      }
+    } catch (error: any) {
+      console.error('Purchase error:', error);
+      Alert.alert(
+        'Error',
+        error.response?.data?.detail || 'Failed to process purchase. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -73,26 +153,12 @@ export default function PreSale() {
         <View style={styles.infoGrid}>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Token Price</Text>
-            <Text style={styles.infoValue}>${TOKEN_PRICE}</Text>
+            <Text style={styles.infoValue}>${config?.tokenPrice || '2.50'}</Text>
           </View>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Min. Purchase</Text>
-            <Text style={styles.infoValue}>100 QTM</Text>
+            <Text style={styles.infoValue}>{MIN_PURCHASE} QTM</Text>
           </View>
-        </View>
-
-        {/* Allocation Progress */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Allocation Status</Text>
-            <Text style={styles.sectionValue}>{allocationPercentage.toFixed(1)}% Sold</Text>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${allocationPercentage}%` }]} />
-          </View>
-          <Text style={styles.progressLabel}>
-            {REMAINING_ALLOCATION.toLocaleString()} / {TOTAL_ALLOCATION.toLocaleString()} tokens remaining
-          </Text>
         </View>
 
         {/* Purchase Form */}
@@ -140,7 +206,7 @@ export default function PreSale() {
               style={[styles.input, styles.inputMono]}
               value={formData.walletAddress}
               onChangeText={(text) => setFormData({ ...formData, walletAddress: text })}
-              placeholder="7NF8P..."
+              placeholder="Enter your Solana wallet address"
               placeholderTextColor={COLORS.textTertiary}
               autoCapitalize="none"
             />
@@ -152,14 +218,14 @@ export default function PreSale() {
               style={styles.input}
               value={formData.tokenAmount}
               onChangeText={(text) => setFormData({ ...formData, tokenAmount: text.replace(/[^0-9]/g, '') })}
-              placeholder="1000"
+              placeholder={`Min ${MIN_PURCHASE}`}
               placeholderTextColor={COLORS.textTertiary}
               keyboardType="numeric"
             />
           </View>
 
           {/* Calculated Total */}
-          {formData.tokenAmount && (
+          {formData.tokenAmount && !isNaN(totalPrice) && (
             <View style={styles.totalCard}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total Amount</Text>
@@ -220,7 +286,7 @@ export default function PreSale() {
           </View>
 
           {paymentMethod === 'crypto' && (
-            <Text style={styles.cryptoNote}>Accepted: USDC, SOL, USDT</Text>
+            <Text style={styles.cryptoNote}>Accepted: SOL, USDC</Text>
           )}
         </View>
 
@@ -234,11 +300,16 @@ export default function PreSale() {
 
         {/* Purchase Button */}
         <TouchableOpacity
-          style={styles.purchaseButton}
+          style={[styles.purchaseButton, loading && styles.purchaseButtonDisabled]}
           onPress={handlePurchase}
+          disabled={loading}
           activeOpacity={0.8}
         >
-          <Text style={styles.purchaseButtonText}>Complete Purchase</Text>
+          {loading ? (
+            <ActivityIndicator color={COLORS.textPrimary} />
+          ) : (
+            <Text style={styles.purchaseButtonText}>Complete Purchase</Text>
+          )}
         </TouchableOpacity>
 
         <View style={{ height: 100 }} />
@@ -298,36 +369,11 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: SPACING.xl,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
   sectionTitle: {
     fontSize: FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
-  },
-  sectionValue: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.medium,
-    color: COLORS.primary,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: COLORS.surface,
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginBottom: SPACING.sm,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: COLORS.primary,
-  },
-  progressLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textTertiary,
+    marginBottom: SPACING.lg,
   },
   inputGroup: {
     marginBottom: SPACING.lg,
@@ -428,6 +474,9 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.lg,
     alignItems: 'center',
+  },
+  purchaseButtonDisabled: {
+    opacity: 0.5,
   },
   purchaseButtonText: {
     fontSize: FONT_SIZES.md,
