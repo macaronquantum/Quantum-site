@@ -329,10 +329,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Pre-sale purchase endpoint"
-    - "Pre-sale config endpoint"
-    - "Referral data endpoint"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
