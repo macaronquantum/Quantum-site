@@ -365,6 +365,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         eurRate,
         loadingBalances,
         votingPower,
+        error,
+        clearError,
         connectWallet,
         disconnectWallet,
         refreshBalances,
