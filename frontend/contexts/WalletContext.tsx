@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Keypair } from '@solana/web3.js';
+import 'react-native-get-random-values';
 
 interface WalletContextType {
   connected: boolean;
@@ -11,6 +11,16 @@ interface WalletContextType {
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+
+// Simple wallet address generator for demo
+function generateWalletAddress(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
+  let address = '';
+  for (let i = 0; i < 44; i++) {
+    address += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return address;
+}
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
@@ -37,13 +47,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const connectWallet = async () => {
     try {
-      // Generate a demo Solana wallet address
-      const keypair = Keypair.generate();
-      const walletAddress = keypair.publicKey.toString();
+      // Generate a demo Solana-style wallet address
+      const walletAddress = generateWalletAddress();
 
       setConnected(true);
       setAddress(walletAddress);
-      setPublicKey(keypair.publicKey);
+      setPublicKey({ toBase58: () => walletAddress });
 
       // Save to AsyncStorage
       await AsyncStorage.setItem('walletAddress', walletAddress);
