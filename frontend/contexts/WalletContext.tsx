@@ -90,9 +90,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  // This keypair lives in memory for the entire session.
-  // Using openAuthSessionAsync means we DON'T lose it during redirect.
-  const dappKeyPair = useRef(nacl.box.keyPair());
+  // Keypair generated lazily to avoid "no PRNG" error
+  const dappKeyPair = useRef<{ publicKey: Uint8Array; secretKey: Uint8Array } | null>(null);
+
+  const getOrCreateKeyPair = useCallback(() => {
+    if (!dappKeyPair.current) {
+      dappKeyPair.current = nacl.box.keyPair();
+    }
+    return dappKeyPair.current;
+  }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
