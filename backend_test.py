@@ -4,10 +4,12 @@ Backend API Testing for Quantum IA Web3 DAO Governance App
 
 This script tests the FastAPI backend server endpoints:
 - GET /api/ (root endpoint)
-- GET /api/status (get status checks)
-- POST /api/status (create status check)
+- GET /api/config (configuration endpoint)
+- POST /api/presale/purchase (presale purchase endpoint)
+- GET /api/referral/{wallet_address} (referral data endpoint)
+- GET /api/health (health check endpoint)
 
-The backend should be running on port 8001 via supervisor.
+The backend should be running via supervisor and accessible via the external URL.
 """
 
 import requests
@@ -37,7 +39,7 @@ class QuantumIABackendTester:
         self.base_url = get_backend_url()
         self.test_results = []
         self.session = requests.Session()
-        self.session.timeout = 10
+        self.session.timeout = 30
         
     def log_test(self, test_name: str, success: bool, details: str, response_data: Any = None):
         """Log test results"""
@@ -63,7 +65,8 @@ class QuantumIABackendTester:
             
             if response.status_code == 200:
                 data = response.json()
-                if data.get('message') == 'Hello World':
+                expected_message = 'Quantum IA Backend API'
+                if data.get('message') == expected_message:
                     self.log_test(
                         "GET /api/ - Root endpoint", 
                         True, 
@@ -74,7 +77,7 @@ class QuantumIABackendTester:
                     self.log_test(
                         "GET /api/ - Root endpoint", 
                         False, 
-                        f"Unexpected message content: {data.get('message')}", 
+                        f"Expected '{expected_message}', got: {data.get('message')}", 
                         data
                     )
             else:
@@ -90,162 +93,377 @@ class QuantumIABackendTester:
         except json.JSONDecodeError as e:
             self.log_test("GET /api/ - Root endpoint", False, f"Invalid JSON response: {str(e)}")
 
-    def test_get_status_checks(self):
-        """Test GET /api/status endpoint"""
+    def test_health_endpoint(self):
+        """Test GET /api/health endpoint"""
         try:
-            response = self.session.get(f"{self.base_url}/status")
+            response = self.session.get(f"{self.base_url}/health")
             
             if response.status_code == 200:
                 data = response.json()
-                if isinstance(data, list):
+                if data.get('status') == 'healthy' and data.get('database') == 'connected':
                     self.log_test(
-                        "GET /api/status - Get status checks", 
+                        "GET /api/health - Health check", 
                         True, 
-                        f"Returned list with {len(data)} status checks", 
-                        f"Count: {len(data)}"
+                        f"Server healthy, database connected", 
+                        data
                     )
                 else:
                     self.log_test(
-                        "GET /api/status - Get status checks", 
+                        "GET /api/health - Health check", 
                         False, 
-                        f"Expected list, got {type(data)}", 
+                        f"Unexpected health status: {data}", 
                         data
                     )
             else:
                 self.log_test(
-                    "GET /api/status - Get status checks", 
+                    "GET /api/health - Health check", 
                     False, 
                     f"HTTP {response.status_code}: {response.text}", 
                     response.text
                 )
                 
         except requests.RequestException as e:
-            self.log_test("GET /api/status - Get status checks", False, f"Request failed: {str(e)}")
+            self.log_test("GET /api/health - Health check", False, f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:
-            self.log_test("GET /api/status - Get status checks", False, f"Invalid JSON response: {str(e)}")
+            self.log_test("GET /api/health - Health check", False, f"Invalid JSON response: {str(e)}")
 
-    def test_create_status_check(self):
-        """Test POST /api/status endpoint"""
-        test_data = {
-            "client_name": "Quantum IA Test Client"
-        }
-        
+    def test_config_endpoint(self):
+        """Test GET /api/config endpoint"""
         try:
-            response = self.session.post(
-                f"{self.base_url}/status", 
-                json=test_data,
-                headers={"Content-Type": "application/json"}
-            )
+            response = self.session.get(f"{self.base_url}/config")
             
             if response.status_code == 200:
                 data = response.json()
-                
-                # Validate response structure
-                required_fields = ['id', 'client_name', 'timestamp']
+                required_fields = ['tokenPrice', 'minPurchase', 'solanaAddress', 'commissionRate']
                 missing_fields = [field for field in required_fields if field not in data]
                 
                 if not missing_fields:
-                    if data['client_name'] == test_data['client_name']:
+                    # Validate data types and values
+                    if (isinstance(data['tokenPrice'], (int, float)) and 
+                        isinstance(data['minPurchase'], int) and 
+                        isinstance(data['solanaAddress'], str) and 
+                        isinstance(data['commissionRate'], (int, float))):
                         self.log_test(
-                            "POST /api/status - Create status check", 
+                            "GET /api/config - Configuration", 
                             True, 
-                            f"Successfully created status check with ID: {data.get('id')}", 
+                            f"All required fields present. Token price: ${data['tokenPrice']}, Min purchase: {data['minPurchase']}", 
                             data
                         )
-                        return data  # Return for potential cleanup
                     else:
                         self.log_test(
-                            "POST /api/status - Create status check", 
+                            "GET /api/config - Configuration", 
                             False, 
-                            f"Client name mismatch. Expected: {test_data['client_name']}, Got: {data['client_name']}", 
+                            f"Invalid data types in response", 
                             data
                         )
                 else:
                     self.log_test(
-                        "POST /api/status - Create status check", 
+                        "GET /api/config - Configuration", 
                         False, 
                         f"Missing required fields: {missing_fields}", 
                         data
                     )
             else:
                 self.log_test(
-                    "POST /api/status - Create status check", 
+                    "GET /api/config - Configuration", 
                     False, 
                     f"HTTP {response.status_code}: {response.text}", 
                     response.text
                 )
                 
         except requests.RequestException as e:
-            self.log_test("POST /api/status - Create status check", False, f"Request failed: {str(e)}")
+            self.log_test("GET /api/config - Configuration", False, f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:
-            self.log_test("POST /api/status - Create status check", False, f"Invalid JSON response: {str(e)}")
-        
-        return None
+            self.log_test("GET /api/config - Configuration", False, f"Invalid JSON response: {str(e)}")
 
-    def test_mongodb_integration(self):
-        """Test MongoDB integration by creating and retrieving data"""
-        print("🔗 Testing MongoDB Integration...")
+    def test_referral_endpoint(self):
+        """Test GET /api/referral/{wallet_address} endpoint"""
+        # Use a realistic Solana wallet address for testing
+        test_wallet = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"
         
-        # First create a status check
-        created_check = self.test_create_status_check()
-        
-        if created_check:
-            # Then verify it can be retrieved
-            print("📋 Verifying data persistence...")
-            try:
-                response = self.session.get(f"{self.base_url}/status")
-                if response.status_code == 200:
-                    checks = response.json()
-                    found_check = None
-                    
-                    for check in checks:
-                        if check.get('id') == created_check.get('id'):
-                            found_check = check
-                            break
-                    
-                    if found_check:
+        try:
+            response = self.session.get(f"{self.base_url}/referral/{test_wallet}")
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ['walletAddress', 'referralCode', 'referrals', 'totalPurchased', 'commissionEarned', 'commissionPending', 'commissionPaid']
+                missing_fields = [field for field in required_fields if field not in data]
+                
+                if not missing_fields:
+                    if (data['walletAddress'] == test_wallet and 
+                        data['referralCode'].startswith('QTM')):
                         self.log_test(
-                            "MongoDB Integration Test", 
+                            "GET /api/referral/{address} - Referral data", 
                             True, 
-                            "Data successfully persisted and retrieved from MongoDB", 
-                            f"Found check with ID: {found_check.get('id')}"
+                            f"Valid referral data returned. Code: {data['referralCode']}, Referrals: {data['referrals']}", 
+                            data
                         )
                     else:
                         self.log_test(
-                            "MongoDB Integration Test", 
+                            "GET /api/referral/{address} - Referral data", 
                             False, 
-                            "Created status check not found in database", 
-                            f"Created ID: {created_check.get('id')}, Available IDs: {[c.get('id') for c in checks]}"
+                            f"Invalid referral data format or wallet mismatch", 
+                            data
                         )
                 else:
                     self.log_test(
-                        "MongoDB Integration Test", 
+                        "GET /api/referral/{address} - Referral data", 
                         False, 
-                        f"Failed to retrieve status checks: HTTP {response.status_code}", 
-                        response.text
+                        f"Missing required fields: {missing_fields}", 
+                        data
                     )
-            except Exception as e:
-                self.log_test("MongoDB Integration Test", False, f"Error during data retrieval: {str(e)}")
-        else:
-            self.log_test("MongoDB Integration Test", False, "Could not create initial status check")
+            else:
+                self.log_test(
+                    "GET /api/referral/{address} - Referral data", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}", 
+                    response.text
+                )
+                
+        except requests.RequestException as e:
+            self.log_test("GET /api/referral/{address} - Referral data", False, f"Request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            self.log_test("GET /api/referral/{address} - Referral data", False, f"Invalid JSON response: {str(e)}")
+
+    def test_presale_purchase_crypto(self):
+        """Test POST /api/presale/purchase endpoint with crypto payment"""
+        test_data = {
+            "firstName": "Alice",
+            "lastName": "Johnson", 
+            "email": "alice.johnson@example.com",
+            "walletAddress": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
+            "tokenAmount": 1000,
+            "paymentMethod": "crypto",
+            "hostUrl": "https://governance-fintech.preview.emergentagent.com"
+        }
+        
+        try:
+            response = self.session.post(
+                f"{self.base_url}/presale/purchase", 
+                json=test_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ['success', 'message']
+                
+                if all(field in data for field in required_fields):
+                    if (data['success'] == True and 
+                        'solanaAddress' in data and 
+                        'amount' in data):
+                        self.log_test(
+                            "POST /api/presale/purchase - Crypto payment", 
+                            True, 
+                            f"Crypto purchase successful. Amount: ${data.get('amount')}, Solana address provided", 
+                            {"success": data['success'], "amount": data.get('amount')}
+                        )
+                    else:
+                        self.log_test(
+                            "POST /api/presale/purchase - Crypto payment", 
+                            False, 
+                            f"Invalid crypto purchase response structure", 
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "POST /api/presale/purchase - Crypto payment", 
+                        False, 
+                        f"Missing required fields in response", 
+                        data
+                    )
+            else:
+                self.log_test(
+                    "POST /api/presale/purchase - Crypto payment", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}", 
+                    response.text
+                )
+                
+        except requests.RequestException as e:
+            self.log_test("POST /api/presale/purchase - Crypto payment", False, f"Request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            self.log_test("POST /api/presale/purchase - Crypto payment", False, f"Invalid JSON response: {str(e)}")
+
+    def test_presale_purchase_card(self):
+        """Test POST /api/presale/purchase endpoint with card payment"""
+        test_data = {
+            "firstName": "Bob",
+            "lastName": "Smith", 
+            "email": "bob.smith@example.com",
+            "walletAddress": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "tokenAmount": 500,
+            "paymentMethod": "card",
+            "hostUrl": "https://governance-fintech.preview.emergentagent.com"
+        }
+        
+        try:
+            response = self.session.post(
+                f"{self.base_url}/presale/purchase", 
+                json=test_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                required_fields = ['success', 'message']
+                
+                if all(field in data for field in required_fields):
+                    if (data['success'] == True and 
+                        'checkoutUrl' in data and 
+                        'sessionId' in data):
+                        self.log_test(
+                            "POST /api/presale/purchase - Card payment", 
+                            True, 
+                            f"Card payment checkout created. Session ID: {data.get('sessionId')[:12]}...", 
+                            {"success": data['success'], "has_checkout_url": bool(data.get('checkoutUrl'))}
+                        )
+                    else:
+                        self.log_test(
+                            "POST /api/presale/purchase - Card payment", 
+                            False, 
+                            f"Invalid card payment response structure", 
+                            data
+                        )
+                else:
+                    self.log_test(
+                        "POST /api/presale/purchase - Card payment", 
+                        False, 
+                        f"Missing required fields in response", 
+                        data
+                    )
+            else:
+                self.log_test(
+                    "POST /api/presale/purchase - Card payment", 
+                    False, 
+                    f"HTTP {response.status_code}: {response.text}", 
+                    response.text
+                )
+                
+        except requests.RequestException as e:
+            self.log_test("POST /api/presale/purchase - Card payment", False, f"Request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            self.log_test("POST /api/presale/purchase - Card payment", False, f"Invalid JSON response: {str(e)}")
+
+    def test_presale_validation(self):
+        """Test POST /api/presale/purchase input validation"""
+        # Test minimum purchase validation
+        test_data = {
+            "firstName": "Charlie",
+            "lastName": "Brown", 
+            "email": "charlie.brown@example.com",
+            "walletAddress": "8xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
+            "tokenAmount": 50,  # Below minimum (100)
+            "paymentMethod": "crypto",
+            "hostUrl": "https://governance-fintech.preview.emergentagent.com"
+        }
+        
+        try:
+            response = self.session.post(
+                f"{self.base_url}/presale/purchase", 
+                json=test_data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 400:
+                data = response.json()
+                if "Minimum purchase" in data.get('detail', ''):
+                    self.log_test(
+                        "POST /api/presale/purchase - Validation", 
+                        True, 
+                        f"Correctly rejected purchase below minimum: {data.get('detail')}", 
+                        data
+                    )
+                else:
+                    self.log_test(
+                        "POST /api/presale/purchase - Validation", 
+                        False, 
+                        f"Wrong validation error message: {data.get('detail')}", 
+                        data
+                    )
+            else:
+                self.log_test(
+                    "POST /api/presale/purchase - Validation", 
+                    False, 
+                    f"Expected HTTP 400, got {response.status_code}: {response.text}", 
+                    response.text
+                )
+                
+        except requests.RequestException as e:
+            self.log_test("POST /api/presale/purchase - Validation", False, f"Request failed: {str(e)}")
+        except json.JSONDecodeError as e:
+            self.log_test("POST /api/presale/purchase - Validation", False, f"Invalid JSON response: {str(e)}")
+
+    def check_status_endpoints(self):
+        """Check if status endpoints exist (mentioned in review request but not in code)"""
+        print("🔍 Checking for status endpoints...")
+        
+        try:
+            # Test GET /api/status
+            response = self.session.get(f"{self.base_url}/status")
+            if response.status_code == 404:
+                self.log_test(
+                    "GET /api/status - Status check", 
+                    False, 
+                    "Endpoint not found - not implemented in current server.py", 
+                    "404 Not Found"
+                )
+            else:
+                self.log_test(
+                    "GET /api/status - Status check", 
+                    False, 
+                    f"Unexpected response: HTTP {response.status_code}", 
+                    response.text
+                )
+                
+            # Test POST /api/status
+            response = self.session.post(
+                f"{self.base_url}/status",
+                json={"client_name": "test"},
+                headers={"Content-Type": "application/json"}
+            )
+            if response.status_code == 404:
+                self.log_test(
+                    "POST /api/status - Create status check", 
+                    False, 
+                    "Endpoint not found - not implemented in current server.py", 
+                    "404 Not Found"
+                )
+            else:
+                self.log_test(
+                    "POST /api/status - Create status check", 
+                    False, 
+                    f"Unexpected response: HTTP {response.status_code}", 
+                    response.text
+                )
+                
+        except requests.RequestException as e:
+            self.log_test("Status endpoints check", False, f"Request failed: {str(e)}")
 
     def run_all_tests(self):
         """Run all backend tests"""
         print("🚀 Starting Quantum IA Backend API Tests")
         print(f"🔗 Testing backend at: {self.base_url}")
-        print("=" * 60)
+        print("=" * 80)
         
-        # Test individual endpoints
+        # Test core endpoints
         self.test_root_endpoint()
-        self.test_get_status_checks()
+        self.test_health_endpoint()
+        self.test_config_endpoint()
+        self.test_referral_endpoint()
         
-        # Test MongoDB integration (includes POST test)
-        self.test_mongodb_integration()
+        # Test presale endpoints
+        self.test_presale_purchase_crypto()
+        self.test_presale_purchase_card()
+        self.test_presale_validation()
+        
+        # Check missing endpoints mentioned in review
+        self.check_status_endpoints()
         
         # Summary
-        print("=" * 60)
+        print("=" * 80)
         print("📊 TEST SUMMARY")
-        print("=" * 60)
+        print("=" * 80)
         
         total_tests = len(self.test_results)
         passed_tests = sum(1 for result in self.test_results if result['success'])
