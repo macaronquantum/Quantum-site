@@ -16,9 +16,11 @@ export default function Index() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <View style={styles.logo}>
-              <Text style={styles.logoText}>Q</Text>
-            </View>
+            <Image 
+              source={require('../assets/images/quantum-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>QUANTUM</Text>
           <Text style={styles.subtitle}>Institutional DAO Governance Platform</Text>
