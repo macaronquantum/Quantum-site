@@ -247,6 +247,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       console.log('[Wallet] Decrypting Phantom response...');
+      console.log('[Wallet] Phantom pubKey from URL:', phantomPubKeyStr.substring(0, 16) + '...');
 
       // Ensure crypto is loaded
       await ensureCrypto();
@@ -256,16 +257,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const nonce = await bs58Decode(nonceStr);
       const encryptedData = await bs58Decode(dataStr);
 
+      console.log('[Wallet] Decoded - phantom pubkey length:', phantomPubKey.length, 'nonce length:', nonce.length);
+
       // Get our keypair (must be the same one used to initiate connection)
       const kp = await getOrCreateKeyPair();
+      
+      // Log our keypair for debugging
+      const ourPubKeyB58 = await bs58Encode(Array.from(kp.publicKey));
+      console.log('[Wallet] Our pubKey for decrypt:', ourPubKeyB58.substring(0, 16) + '...');
+      console.log('[Wallet] Secret key length:', kp.secretKey.length);
 
       // Derive shared secret using X25519
       const sharedSecret = nacl.box.before(phantomPubKey, kp.secretKey);
+      console.log('[Wallet] Shared secret computed, length:', sharedSecret.length);
 
       // Decrypt the response
       const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
 
       if (!decrypted) {
+        console.error('[Wallet] Decryption returned null!');
+        console.error('[Wallet] This means our keypair does not match what Phantom used.');
         throw new Error('Decryption failed — keypair mismatch. Please try connecting again.');
       }
 
