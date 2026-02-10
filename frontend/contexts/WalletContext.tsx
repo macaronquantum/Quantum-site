@@ -1,9 +1,11 @@
+import 'react-native-get-random-values';
 import React, {
   createContext,
   useContext,
   useState,
   useEffect,
   useRef,
+  useCallback,
   ReactNode,
 } from 'react';
 import { Platform, Alert } from 'react-native';
@@ -12,194 +14,225 @@ import * as Linking from 'expo-linking';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { Buffer } from 'buffer';
+import {
+  getQuantumBalance,
+  getSolBalance,
+  getUsdToEurRate,
+  QUANTUM_PRICE_USD,
+  TokenBalance,
+} from '../utils/solanaRpc';
 
-// ─── Types ──────────────────────────────────────────────
-interface WalletContextType {
+// ─── Types ──────────────────────────────────────────────────
+export interface WalletState {
   connected: boolean;
   address: string | null;
   connecting: boolean;
-  votingPower: number;
+  // Real on-chain data
+  quantumBalance: TokenBalance | null;
+  solBalance: number;
+  usdValue: number;
+  eurValue: number;
+  eurRate: number;
+  loadingBalances: boolean;
+  // Actions
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
+  refreshBalances: () => Promise<void>;
 }
 
-const WalletContext = createContext<WalletContextType>({
+const WalletContext = createContext<WalletState>({
   connected: false,
   address: null,
   connecting: false,
-  votingPower: 0,
+  quantumBalance: null,
+  solBalance: 0,
+  usdValue: 0,
+  eurValue: 0,
+  eurRate: 0.92,
+  loadingBalances: false,
   connectWallet: async () => {},
   disconnectWallet: async () => {},
+  refreshBalances: async () => {},
 });
 
-// ─── Phantom browser extension helper (web only) ──────
-const getPhantomProvider = (): any | null => {
+// ─── Phantom browser-extension helper (web) ─────────────────
+const getSolanaProvider = (): any | null => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const w = window as any;
+    // Standard Solana wallet interface
     if (w.phantom?.solana?.isPhantom) return w.phantom.solana;
     if (w.solana?.isPhantom) return w.solana;
+    // Generic Solana provider (Solflare, Backpack, etc.)
+    if (w.solana) return w.solana;
   }
   return null;
 };
 
-// ─── Deep-link prefix ─────────────────────────────────
-const buildRedirectUri = (path: string) => Linking.createURL(path);
-
-// ─── Provider ─────────────────────────────────────────
+// ─── Provider ───────────────────────────────────────────────
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const [session, setSession] = useState<string | null>(null);
 
-  // Persistent keypair for Phantom deep-link handshake
+  // On-chain data
+  const [quantumBalance, setQuantumBalance] = useState<TokenBalance | null>(null);
+  const [solBalance, setSolBalance] = useState(0);
+  const [usdValue, setUsdValue] = useState(0);
+  const [eurValue, setEurValue] = useState(0);
+  const [eurRate, setEurRate] = useState(0.92);
+  const [loadingBalances, setLoadingBalances] = useState(false);
+
+  // Deep-link keypair for Phantom mobile
   const dappKeyPair = useRef(nacl.box.keyPair());
   const sharedSecretRef = useRef<Uint8Array | null>(null);
+  const sessionRef = useRef<string | null>(null);
 
-  // Demo balances
-  const quantumBalance = connected ? 3500 : 0;
-  const coQuantumBalance = connected ? 250 : 0;
-  const votingPower = quantumBalance + coQuantumBalance * 2;
-
-  // ── Restore session on mount ──────────────────────
+  // ─── Restore session on mount ─────────────────────────────
   useEffect(() => {
     restoreSession();
   }, []);
 
-  // ── Listen for Phantom deep-link callbacks ────────
+  // ─── Listen for Phantom deep-link callbacks (mobile) ──────
   useEffect(() => {
-    const handleUrl = (event: { url: string }) => {
-      handleDeepLink(event.url);
-    };
-
+    const handleUrl = (event: { url: string }) => handleDeepLink(event.url);
     const sub = Linking.addEventListener('url', handleUrl);
-
-    // Also check the initial URL (app opened from deep-link)
     Linking.getInitialURL().then((url) => {
       if (url) handleDeepLink(url);
     });
-
     return () => sub.remove();
   }, []);
 
-  // ── Deep-link response handler ────────────────────
+  // ─── Fetch balances when address changes ──────────────────
+  useEffect(() => {
+    if (connected && address) {
+      refreshBalances();
+    } else {
+      // Clear on disconnect
+      setQuantumBalance(null);
+      setSolBalance(0);
+      setUsdValue(0);
+      setEurValue(0);
+    }
+  }, [connected, address]);
+
+  // ─── Fetch real on-chain balances ─────────────────────────
+  const refreshBalances = useCallback(async () => {
+    if (!address) return;
+    setLoadingBalances(true);
+
+    try {
+      const [qtmBal, sol, rate] = await Promise.all([
+        getQuantumBalance(address),
+        getSolBalance(address),
+        getUsdToEurRate(),
+      ]);
+
+      setQuantumBalance(qtmBal);
+      setSolBalance(sol);
+      setEurRate(rate);
+
+      const usd = qtmBal.amount * QUANTUM_PRICE_USD;
+      setUsdValue(usd);
+      setEurValue(usd * rate);
+    } catch (err) {
+      console.error('refreshBalances error:', err);
+    } finally {
+      setLoadingBalances(false);
+    }
+  }, [address]);
+
+  // ─── Restore previous session ─────────────────────────────
+  const restoreSession = async () => {
+    try {
+      const storedAddress = await AsyncStorage.getItem('walletAddress');
+      if (!storedAddress) return;
+
+      // Web: try silent reconnect via extension
+      if (Platform.OS === 'web') {
+        const provider = getSolanaProvider();
+        if (provider) {
+          try {
+            const resp = await provider.connect({ onlyIfTrusted: true });
+            const addr = resp.publicKey.toString();
+            setConnected(true);
+            setAddress(addr);
+            await AsyncStorage.setItem('walletAddress', addr);
+            return;
+          } catch {
+            // Silent reconnect failed — clear stale session
+            await AsyncStorage.removeItem('walletAddress');
+            return;
+          }
+        }
+      }
+
+      // Mobile: restore from stored address (balances will be re-fetched)
+      setConnected(true);
+      setAddress(storedAddress);
+    } catch (err) {
+      console.error('restoreSession error:', err);
+    }
+  };
+
+  // ─── Deep-link callback handler (Phantom mobile) ──────────
   const handleDeepLink = async (url: string) => {
     try {
       if (!url) return;
-
-      // Parse the URL
       const parsedUrl = new URL(url);
       const params = parsedUrl.searchParams;
 
-      // Check if this is a Phantom connect response
+      // Error from Phantom
+      const errorCode = params.get('errorCode');
+      if (errorCode) {
+        const errorMsg = params.get('errorMessage') || 'Connection rejected';
+        Alert.alert('Connection Failed', errorMsg);
+        setConnecting(false);
+        return;
+      }
+
+      // Connect response
       if (
-        url.includes('onConnect') ||
-        url.includes('phantom-connect') ||
+        url.includes('onConnect') &&
         params.has('phantom_encryption_public_key')
       ) {
-        // Check for error
-        const errorCode = params.get('errorCode');
-        if (errorCode) {
-          const errorMsg = params.get('errorMessage') || 'Connection rejected';
-          Alert.alert('Connection Failed', errorMsg);
-          setConnecting(false);
-          return;
-        }
+        const phantomPubKey = bs58.decode(params.get('phantom_encryption_public_key')!);
+        const nonce = bs58.decode(params.get('nonce')!);
+        const encryptedData = bs58.decode(params.get('data')!);
 
-        const phantomPubKeyStr = params.get('phantom_encryption_public_key');
-        const nonceStr = params.get('nonce');
-        const dataStr = params.get('data');
-
-        if (!phantomPubKeyStr || !nonceStr || !dataStr) {
-          console.warn('Missing deep-link params');
-          setConnecting(false);
-          return;
-        }
-
-        // Decode base58 values
-        const phantomPubKey = bs58.decode(phantomPubKeyStr);
-        const nonce = bs58.decode(nonceStr);
-        const encryptedData = bs58.decode(dataStr);
-
-        // Derive shared secret
         const sharedSecret = nacl.box.before(
           phantomPubKey,
           dappKeyPair.current.secretKey
         );
         sharedSecretRef.current = sharedSecret;
 
-        // Decrypt
         const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
-
         if (!decrypted) {
           Alert.alert('Error', 'Failed to decrypt wallet response.');
           setConnecting(false);
           return;
         }
 
-        const decoded = JSON.parse(
-          Buffer.from(decrypted).toString('utf8')
-        );
-
+        const decoded = JSON.parse(Buffer.from(decrypted).toString('utf8'));
         const walletAddress = decoded.public_key;
-        const phantomSession = decoded.session;
+        sessionRef.current = decoded.session;
 
-        // Save state
         setConnected(true);
         setAddress(walletAddress);
-        setSession(phantomSession);
         setConnecting(false);
-
         await AsyncStorage.setItem('walletAddress', walletAddress);
-        await AsyncStorage.setItem('phantomSession', phantomSession);
-
-        Alert.alert(
-          'Wallet Connected',
-          `Address: ${walletAddress.slice(0, 8)}...${walletAddress.slice(-4)}`
-        );
       }
 
       // Disconnect response
       if (url.includes('onDisconnect')) {
         await clearSession();
       }
-    } catch (error: any) {
-      console.error('Deep-link handler error:', error);
+    } catch (err: any) {
+      console.error('Deep-link handler error:', err);
       setConnecting(false);
     }
   };
 
-  // ── Restore previous session ──────────────────────
-  const restoreSession = async () => {
-    try {
-      const storedAddress = await AsyncStorage.getItem('walletAddress');
-      if (storedAddress) {
-        // On web, try to reconnect via extension silently
-        if (Platform.OS === 'web') {
-          const provider = getPhantomProvider();
-          if (provider) {
-            try {
-              const resp = await provider.connect({ onlyIfTrusted: true });
-              const addr = resp.publicKey.toString();
-              setConnected(true);
-              setAddress(addr);
-              await AsyncStorage.setItem('walletAddress', addr);
-              return;
-            } catch {
-              // Silent reconnect failed – that's ok
-            }
-          }
-        }
-        // Fallback: restore from stored address
-        setConnected(true);
-        setAddress(storedAddress);
-      }
-    } catch (err) {
-      console.error('Restore session error:', err);
-    }
-  };
-
-  // ── Connect ───────────────────────────────────────
+  // ─── Connect ──────────────────────────────────────────────
   const connectWallet = async () => {
     if (connecting) return;
     setConnecting(true);
@@ -207,20 +240,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       // ── WEB: use browser extension ──
       if (Platform.OS === 'web') {
-        const provider = getPhantomProvider();
+        const provider = getSolanaProvider();
+
         if (provider) {
-          const resp = await provider.connect();
-          const addr = resp.publicKey.toString();
-          setConnected(true);
-          setAddress(addr);
+          try {
+            const resp = await provider.connect();
+            const addr = resp.publicKey.toString();
+            setConnected(true);
+            setAddress(addr);
+            await AsyncStorage.setItem('walletAddress', addr);
+            console.log('Wallet connected:', addr);
+          } catch (err: any) {
+            if (err?.code === 4001) {
+              Alert.alert('Rejected', 'You rejected the connection request.');
+            } else {
+              Alert.alert('Error', err?.message || 'Connection failed.');
+            }
+          }
           setConnecting(false);
-          await AsyncStorage.setItem('walletAddress', addr);
           return;
         }
-        // No extension → open Phantom website
+
+        // No Solana wallet detected
         Alert.alert(
-          'Phantom Required',
-          'Install the Phantom extension to connect your wallet.',
+          'No Solana Wallet Detected',
+          'Please install Phantom or another Solana wallet extension.',
           [
             {
               text: 'Get Phantom',
@@ -237,8 +281,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // ── MOBILE: Phantom deep-link ──
-      const redirectUri = buildRedirectUri('onConnect');
-
+      const redirectUri = Linking.createURL('onConnect');
       const params = new URLSearchParams({
         dapp_encryption_public_key: bs58.encode(
           Buffer.from(dappKeyPair.current.publicKey)
@@ -249,10 +292,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       const connectUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
-
       const canOpen = await Linking.canOpenURL('phantom://');
+
       if (canOpen) {
         await Linking.openURL(connectUrl);
+        // connecting state stays true until deep-link callback
       } else {
         Alert.alert(
           'Phantom Not Found',
@@ -272,58 +316,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         );
         setConnecting(false);
       }
-    } catch (error: any) {
-      console.error('Connect error:', error);
-      Alert.alert('Connection Error', error?.message || 'Failed to connect.');
+    } catch (err: any) {
+      console.error('connectWallet error:', err);
+      Alert.alert('Error', err?.message || 'Failed to connect.');
       setConnecting(false);
     }
   };
 
-  // ── Disconnect ────────────────────────────────────
+  // ─── Disconnect ───────────────────────────────────────────
   const disconnectWallet = async () => {
     try {
-      // Web: disconnect via extension
       if (Platform.OS === 'web') {
-        const provider = getPhantomProvider();
+        const provider = getSolanaProvider();
         if (provider) {
-          try {
-            await provider.disconnect();
-          } catch {
-            // ignore
-          }
-        }
-      } else if (session && sharedSecretRef.current) {
-        // Mobile: deep-link disconnect
-        try {
-          const nonce = nacl.randomBytes(24);
-          const payload = JSON.stringify({ session });
-          const encrypted = nacl.box.after(
-            Buffer.from(payload),
-            nonce,
-            sharedSecretRef.current
-          );
-
-          const redirectUri = buildRedirectUri('onDisconnect');
-          const params = new URLSearchParams({
-            dapp_encryption_public_key: bs58.encode(
-              Buffer.from(dappKeyPair.current.publicKey)
-            ),
-            nonce: bs58.encode(Buffer.from(nonce)),
-            redirect_link: redirectUri,
-            payload: bs58.encode(Buffer.from(encrypted)),
-          });
-
-          await Linking.openURL(
-            `https://phantom.app/ul/v1/disconnect?${params.toString()}`
-          );
-        } catch {
-          // If deep-link disconnect fails, just clear locally
+          try { await provider.disconnect(); } catch {}
         }
       }
-
       await clearSession();
-    } catch (error) {
-      console.error('Disconnect error:', error);
+    } catch (err) {
+      console.error('disconnectWallet error:', err);
       await clearSession();
     }
   };
@@ -331,7 +342,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const clearSession = async () => {
     setConnected(false);
     setAddress(null);
-    setSession(null);
+    setQuantumBalance(null);
+    setSolBalance(0);
+    setUsdValue(0);
+    setEurValue(0);
+    sessionRef.current = null;
     sharedSecretRef.current = null;
     await AsyncStorage.multiRemove(['walletAddress', 'phantomSession']);
   };
@@ -342,9 +357,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         connected,
         address,
         connecting,
-        votingPower,
+        quantumBalance,
+        solBalance,
+        usdValue,
+        eurValue,
+        eurRate,
+        loadingBalances,
         connectWallet,
         disconnectWallet,
+        refreshBalances,
       }}
     >
       {children}
