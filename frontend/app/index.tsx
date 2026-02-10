@@ -109,10 +109,11 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     marginBottom: SPACING.xl,
-    borderRadius: BORDER_RADIUS.xl,
+    borderRadius: BORDER_RADIUS.xxl,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    padding: SPACING.md,
+    padding: SPACING.lg,
+    ...SHADOWS.medium,
   },
   logoImage: {
     width: 80,
