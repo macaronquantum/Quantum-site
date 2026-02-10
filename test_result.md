@@ -204,11 +204,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "GET /api/referral/{address} returns referral code and stats for the given wallet address"
+      - working: true
+        agent: "testing"
+        comment: "GET /api/referral/{address} tested successfully: creates/returns referral data with proper structure (walletAddress, referralCode QTM prefix, stats). Auto-generates referral code from wallet address."
 
 frontend:
   - task: "Landing page responsive with visible CTA button"
