@@ -192,7 +192,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   };
 
   // ─── Decrypt Phantom response ──────────────────────────────
-  const decryptPhantomResponse = (url: string): string | null => {
+  const decryptPhantomResponse = async (url: string): Promise<string | null> => {
     try {
       const parsedUrl = new URL(url);
       const params = parsedUrl.searchParams;
