@@ -236,8 +236,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       console.log('[Wallet] Decrypting with keypair...');
 
-      // Get our secret key
+      // Get our secret key - this also ensures nacl is loaded
       const kp = await getOrCreateKeyPair();
+      
+      // Ensure nacl is available before using it
+      await ensureCrypto();
 
       // Derive shared secret using X25519
       const sharedSecret = nacl.box.before(phantomPubKey, kp.secretKey);
