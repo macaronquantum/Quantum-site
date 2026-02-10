@@ -331,8 +331,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
     }
   }, [decryptPhantomResponse]);
-    }
-  }, [decryptPhantomResponse]);
 
   // ─── Initialize: preload crypto & check for callback ──────
   useEffect(() => {
