@@ -35,6 +35,9 @@ export interface WalletState {
   eurRate: number;
   loadingBalances: boolean;
   votingPower: number;
+  // UI feedback
+  error: string | null;
+  clearError: () => void;
   // Actions
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
@@ -52,6 +55,8 @@ const WalletContext = createContext<WalletState>({
   eurRate: 0.92,
   loadingBalances: false,
   votingPower: 0,
+  error: null,
+  clearError: () => {},
   connectWallet: async () => {},
   disconnectWallet: async () => {},
   refreshBalances: async () => {},
