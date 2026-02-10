@@ -93,18 +93,9 @@ const styles = StyleSheet.create({
   logoContainer: {
     marginBottom: SPACING.xl,
   },
-  logo: {
-    width: 80,
-    height: 80,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    fontSize: 48,
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.textPrimary,
+  logoImage: {
+    width: 100,
+    height: 100,
   },
   title: {
     fontSize: FONT_SIZES.xxxl,
