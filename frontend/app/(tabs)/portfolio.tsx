@@ -124,7 +124,19 @@ export default function Portfolio() {
               </View>
             )}
 
-            {error && error !== 'NO_WALLET' && (
+            {error === 'PHANTOM_OPENED' && (
+              <View style={styles.successCard}>
+                <Ionicons name="open-outline" size={20} color={COLORS.success} />
+                <View style={styles.errorContent}>
+                  <Text style={styles.successTitle}>Phantom Opened</Text>
+                  <Text style={styles.errorText}>
+                    Approve the connection in Phantom, then return here. The page will update automatically.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {error && error !== 'NO_WALLET' && error !== 'PHANTOM_OPENED' && (
               <View style={styles.errorCard}>
                 <Ionicons name="close-circle" size={20} color={COLORS.error} />
                 <View style={styles.errorContent}>
