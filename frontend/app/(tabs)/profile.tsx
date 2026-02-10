@@ -20,6 +20,8 @@ export default function Profile() {
     solBalance,
     usdValue,
     eurValue,
+    error,
+    clearError,
   } = useWallet();
 
   const [notifications, setNotifications] = useState(true);
