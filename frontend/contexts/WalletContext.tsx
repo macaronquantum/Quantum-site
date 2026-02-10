@@ -12,8 +12,6 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import nacl from 'tweetnacl';
-import bs58 from 'bs58';
 import { Buffer } from 'buffer';
 import {
   getQuantumBalance,
@@ -22,6 +20,20 @@ import {
   QUANTUM_PRICE_USD,
   TokenBalance,
 } from '../utils/solanaRpc';
+
+// Lazy-load tweetnacl and bs58 to ensure PRNG polyfill is ready
+let nacl: typeof import('tweetnacl');
+let bs58: typeof import('bs58');
+
+async function ensureCrypto() {
+  if (!nacl) {
+    nacl = (await import('tweetnacl')).default || await import('tweetnacl');
+  }
+  if (!bs58) {
+    const mod = await import('bs58');
+    bs58 = mod.default || mod;
+  }
+}
 
 // Ensure auth session completes properly
 WebBrowser.maybeCompleteAuthSession();
