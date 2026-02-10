@@ -11,6 +11,7 @@ import React, {
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { Buffer } from 'buffer';
@@ -21,6 +22,9 @@ import {
   QUANTUM_PRICE_USD,
   TokenBalance,
 } from '../utils/solanaRpc';
+
+// Ensure auth session completes properly
+WebBrowser.maybeCompleteAuthSession();
 
 // ─── Types ──────────────────────────────────────────────────
 export interface WalletState {
@@ -59,7 +63,7 @@ const WalletContext = createContext<WalletState>({
   refreshBalances: async () => {},
 });
 
-// ─── Solana wallet extension (web only) ─────────────────────
+// ─── Browser extension (web only) ───────────────────────────
 const getSolanaProvider = (): any | null => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     const w = window as any;
@@ -70,28 +74,7 @@ const getSolanaProvider = (): any | null => {
   return null;
 };
 
-// ─── Keypair persistence helpers ─────────────────────────────
-const STORAGE_KEYS = {
-  SECRET_KEY: 'phantom_dapp_secret_key',
-  PUBLIC_KEY: 'phantom_dapp_public_key',
-  WALLET_ADDRESS: 'walletAddress',
-  SESSION: 'phantomSession',
-};
-
-async function saveKeypair(kp: { publicKey: Uint8Array; secretKey: Uint8Array }) {
-  await AsyncStorage.setItem(STORAGE_KEYS.SECRET_KEY, bs58.encode(Buffer.from(kp.secretKey)));
-  await AsyncStorage.setItem(STORAGE_KEYS.PUBLIC_KEY, bs58.encode(Buffer.from(kp.publicKey)));
-}
-
-async function loadSecretKey(): Promise<Uint8Array | null> {
-  const stored = await AsyncStorage.getItem(STORAGE_KEYS.SECRET_KEY);
-  if (!stored) return null;
-  try {
-    return new Uint8Array(bs58.decode(stored));
-  } catch {
-    return null;
-  }
-}
+const WALLET_KEY = 'walletAddress';
 
 // ─── Provider ───────────────────────────────────────────────
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -107,44 +90,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  // Generate keypair once; will be persisted to AsyncStorage before use
+  // This keypair lives in memory for the entire session.
+  // Using openAuthSessionAsync means we DON'T lose it during redirect.
   const dappKeyPair = useRef(nacl.box.keyPair());
-  const sharedSecretRef = useRef<Uint8Array | null>(null);
-  const sessionRef = useRef<string | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
 
-  // ─── Init: restore session + check for Phantom callback ────
+  // ─── Restore session on mount ──────────────────────────────
   useEffect(() => {
-    initWallet();
-  }, []);
-
-  const initWallet = async () => {
-    // First: check if we're returning from a Phantom redirect (web)
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const url = window.location.href;
-      if (url.includes('phantom_encryption_public_key') || url.includes('errorCode')) {
-        await handlePhantomCallback(url);
-        return; // Don't restore old session, we're handling a new connection
-      }
-    }
-    // Otherwise: try to restore previous session
-    await restoreSession();
-  };
-
-  // ─── Listen for deep-link callbacks (mobile Expo Go) ───────
-  useEffect(() => {
-    const handleUrl = (event: { url: string }) => {
-      if (event.url) handlePhantomCallback(event.url);
-    };
-    const sub = Linking.addEventListener('url', handleUrl);
-    // Also check initial URL
-    Linking.getInitialURL().then((url) => {
-      if (url && (url.includes('phantom_encryption_public_key') || url.includes('onConnect'))) {
-        handlePhantomCallback(url);
-      }
-    });
-    return () => sub.remove();
+    restoreSession();
   }, []);
 
   // ─── Fetch balances when connected ─────────────────────────
@@ -163,121 +117,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const refreshBalances = useCallback(async () => {
     if (!address) return;
     setLoadingBalances(true);
-    setError(null);
 
     try {
-      console.log('Fetching on-chain data for:', address);
+      console.log('[Wallet] Fetching on-chain data for:', address);
       const [qtmBal, sol, rate] = await Promise.all([
         getQuantumBalance(address),
         getSolBalance(address),
         getUsdToEurRate(),
       ]);
 
-      console.log('Quantum balance:', qtmBal.amount, 'SOL:', sol, 'EUR rate:', rate);
-
+      console.log('[Wallet] QTM:', qtmBal.amount, 'SOL:', sol, 'EUR rate:', rate);
       setQuantumBalance(qtmBal);
       setSolBalance(sol);
       setEurRate(rate);
-
       const usd = qtmBal.amount * QUANTUM_PRICE_USD;
       setUsdValue(usd);
       setEurValue(usd * rate);
     } catch (err: any) {
-      console.error('refreshBalances error:', err);
-      // Don't set error here — the wallet IS connected, just the RPC might be slow
+      console.error('[Wallet] Balance fetch error:', err);
+      // Don't set error — wallet IS connected, RPC is just slow
     } finally {
       setLoadingBalances(false);
     }
   }, [address]);
 
-  // ─── Handle Phantom callback (both web redirect & mobile deep-link) ──
-  const handlePhantomCallback = async (url: string) => {
-    try {
-      console.log('Phantom callback URL:', url.substring(0, 100));
-
-      const parsedUrl = new URL(url);
-      const params = parsedUrl.searchParams;
-
-      // Clean URL on web
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const cleanUrl = parsedUrl.origin + parsedUrl.pathname;
-        window.history.replaceState({}, '', cleanUrl);
-      }
-
-      // Check for errors from Phantom
-      const errorCode = params.get('errorCode');
-      if (errorCode) {
-        setError(params.get('errorMessage') || 'Connection rejected by user.');
-        setConnecting(false);
-        return;
-      }
-
-      const phantomPubKeyStr = params.get('phantom_encryption_public_key');
-      const nonceStr = params.get('nonce');
-      const dataStr = params.get('data');
-
-      if (!phantomPubKeyStr || !nonceStr || !dataStr) {
-        console.log('No Phantom connect params found in URL');
-        return;
-      }
-
-      // Load the SECRET KEY we saved BEFORE redirecting to Phantom
-      const storedSecretKey = await loadSecretKey();
-
-      // Also try the in-memory keypair as fallback
-      const secretKeyToUse = storedSecretKey || dappKeyPair.current.secretKey;
-
-      if (!secretKeyToUse) {
-        setError('Session expired. Please try connecting again.');
-        setConnecting(false);
-        return;
-      }
-
-      console.log('Decrypting Phantom response...');
-
-      const phantomPubKey = bs58.decode(phantomPubKeyStr);
-      const nonce = bs58.decode(nonceStr);
-      const encryptedData = bs58.decode(dataStr);
-
-      // Derive shared secret
-      const sharedSecret = nacl.box.before(phantomPubKey, secretKeyToUse);
-      sharedSecretRef.current = sharedSecret;
-
-      // Decrypt
-      const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
-      if (!decrypted) {
-        setError('Decryption failed. Please try connecting again.');
-        setConnecting(false);
-        return;
-      }
-
-      const decoded = JSON.parse(Buffer.from(decrypted).toString('utf8'));
-      const walletAddress = decoded.public_key;
-      sessionRef.current = decoded.session;
-
-      console.log('Wallet connected successfully:', walletAddress);
-
-      setConnected(true);
-      setAddress(walletAddress);
-      setConnecting(false);
-      setError(null);
-      await AsyncStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, walletAddress);
-      if (decoded.session) {
-        await AsyncStorage.setItem(STORAGE_KEYS.SESSION, decoded.session);
-      }
-    } catch (err: any) {
-      console.error('Phantom callback error:', err?.message || err);
-      setError('Connection failed: ' + (err?.message || 'Unknown error'));
-      setConnecting(false);
-    }
-  };
-
   // ─── Restore previous session ──────────────────────────────
   const restoreSession = async () => {
     try {
-      const storedAddress = await AsyncStorage.getItem(STORAGE_KEYS.WALLET_ADDRESS);
+      const storedAddress = await AsyncStorage.getItem(WALLET_KEY);
       if (!storedAddress) return;
 
+      // Web: try silent reconnect via extension
       if (Platform.OS === 'web') {
         const provider = getSolanaProvider();
         if (provider) {
@@ -286,19 +156,71 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const addr = resp.publicKey.toString();
             setConnected(true);
             setAddress(addr);
-            await AsyncStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, addr);
+            await AsyncStorage.setItem(WALLET_KEY, addr);
             return;
           } catch {
-            // Silent reconnect failed
+            // Extension not auto-approved — still restore from storage
           }
         }
       }
 
-      // Mobile or web without extension: restore from storage
+      // Restore from stored address (balances will be fetched via useEffect)
       setConnected(true);
       setAddress(storedAddress);
     } catch (err) {
-      console.error('restoreSession error:', err);
+      console.error('[Wallet] Restore error:', err);
+    }
+  };
+
+  // ─── Decrypt Phantom response ──────────────────────────────
+  const decryptPhantomResponse = (url: string): string | null => {
+    try {
+      const parsedUrl = new URL(url);
+      const params = parsedUrl.searchParams;
+
+      // Check for Phantom error
+      const errorCode = params.get('errorCode');
+      if (errorCode) {
+        const msg = params.get('errorMessage') || 'Connection rejected.';
+        throw new Error(msg);
+      }
+
+      const phantomPubKeyStr = params.get('phantom_encryption_public_key');
+      const nonceStr = params.get('nonce');
+      const dataStr = params.get('data');
+
+      if (!phantomPubKeyStr || !nonceStr || !dataStr) {
+        throw new Error('Missing Phantom response parameters.');
+      }
+
+      // Decode bs58 values
+      const phantomPubKey = new Uint8Array(bs58.decode(phantomPubKeyStr));
+      const nonce = new Uint8Array(bs58.decode(nonceStr));
+      const encryptedData = new Uint8Array(bs58.decode(dataStr));
+
+      // Get our secret key (still in memory — openAuthSessionAsync keeps the app alive)
+      const secretKey = dappKeyPair.current.secretKey;
+
+      console.log('[Wallet] Decrypting with keypair publicKey:', 
+        bs58.encode(Buffer.from(dappKeyPair.current.publicKey)).substring(0, 8) + '...');
+
+      // Derive shared secret using X25519
+      const sharedSecret = nacl.box.before(phantomPubKey, secretKey);
+
+      // Decrypt the response
+      const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
+
+      if (!decrypted) {
+        throw new Error('Decryption returned null — keypair mismatch.');
+      }
+
+      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      console.log('[Wallet] Decrypted payload:', JSON.stringify(payload).substring(0, 100));
+
+      return payload.public_key;
+    } catch (err: any) {
+      console.error('[Wallet] Decrypt error:', err?.message);
+      throw err;
     }
   };
 
@@ -319,44 +241,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const addr = resp.publicKey.toString();
             setConnected(true);
             setAddress(addr);
-            setError(null);
-            await AsyncStorage.setItem(STORAGE_KEYS.WALLET_ADDRESS, addr);
-            console.log('Wallet connected via extension:', addr);
+            await AsyncStorage.setItem(WALLET_KEY, addr);
+            console.log('[Wallet] Connected via extension:', addr);
+            setConnecting(false);
+            return;
           } catch (err: any) {
-            setError(err?.code === 4001 ? 'Connection rejected.' : (err?.message || 'Connection failed.'));
+            setError(err?.code === 4001 ? 'Connection rejected.' : (err?.message || 'Failed.'));
+            setConnecting(false);
+            return;
           }
-          setConnecting(false);
-          return;
         }
-      }
 
-      // ── No extension OR mobile: use Phantom universal link ──
+        // Web without extension: redirect to Phantom
+        const currentUrl = window.location.origin + window.location.pathname;
+        const dappPubKeyB58 = bs58.encode(Buffer.from(dappKeyPair.current.publicKey));
 
-      // IMPORTANT: Save the keypair BEFORE redirecting!
-      await saveKeypair(dappKeyPair.current);
+        const connectParams = new URLSearchParams({
+          dapp_encryption_public_key: dappPubKeyB58,
+          cluster: 'mainnet-beta',
+          app_url: currentUrl,
+          redirect_link: currentUrl,
+        });
 
-      const dappPubKeyB58 = bs58.encode(Buffer.from(dappKeyPair.current.publicKey));
+        const connectUrl = `https://phantom.app/ul/v1/connect?${connectParams.toString()}`;
 
-      // Build redirect URI
-      let redirectUri: string;
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        redirectUri = window.location.origin + window.location.pathname;
-      } else {
-        redirectUri = Linking.createURL('onConnect');
-      }
-
-      const connectParams = new URLSearchParams({
-        dapp_encryption_public_key: dappPubKeyB58,
-        cluster: 'mainnet-beta',
-        app_url: 'https://quantum-ia.com',
-        redirect_link: redirectUri,
-      });
-
-      const connectUrl = `https://phantom.app/ul/v1/connect?${connectParams.toString()}`;
-      console.log('Opening Phantom connect URL');
-
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        // Web: try to break out of iframe, or open new tab
         try {
           if (window.top && window.top !== window) {
             window.open(connectUrl, '_blank');
@@ -367,16 +275,54 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         } catch {
           window.open(connectUrl, '_blank');
         }
+
         setError('PHANTOM_OPENED');
         setConnecting(false);
-      } else {
-        // Mobile: open Phantom via universal link
-        await Linking.openURL(connectUrl);
-        // Keep connecting=true until callback
+        return;
+      }
+
+      // ── MOBILE: use expo-web-browser (keeps app alive!) ──
+      const dappPubKeyB58 = bs58.encode(Buffer.from(dappKeyPair.current.publicKey));
+      const redirectUri = Linking.createURL('onConnect');
+
+      console.log('[Wallet] Redirect URI:', redirectUri);
+      console.log('[Wallet] Dapp public key:', dappPubKeyB58.substring(0, 8) + '...');
+
+      const connectParams = new URLSearchParams({
+        dapp_encryption_public_key: dappPubKeyB58,
+        cluster: 'mainnet-beta',
+        app_url: 'https://quantum-ia.com',
+        redirect_link: redirectUri,
+      });
+
+      const connectUrl = `https://phantom.app/ul/v1/connect?${connectParams.toString()}`;
+
+      console.log('[Wallet] Opening Phantom auth session...');
+
+      // openAuthSessionAsync opens a browser, waits for redirect back to our scheme,
+      // and returns the result — the app stays alive, keypair stays in memory!
+      const result = await WebBrowser.openAuthSessionAsync(connectUrl, redirectUri);
+
+      console.log('[Wallet] Auth session result type:', result.type);
+
+      if (result.type === 'success' && result.url) {
+        console.log('[Wallet] Got redirect URL:', result.url.substring(0, 80) + '...');
+
+        const walletAddress = decryptPhantomResponse(result.url);
+
+        if (walletAddress) {
+          setConnected(true);
+          setAddress(walletAddress);
+          await AsyncStorage.setItem(WALLET_KEY, walletAddress);
+          console.log('[Wallet] Connected:', walletAddress);
+        }
+      } else if (result.type === 'cancel' || result.type === 'dismiss') {
+        setError('Connection cancelled.');
       }
     } catch (err: any) {
-      console.error('connectWallet error:', err);
-      setError(err?.message || 'Failed to connect wallet.');
+      console.error('[Wallet] Connect error:', err?.message || err);
+      setError(err?.message || 'Connection failed.');
+    } finally {
       setConnecting(false);
     }
   };
@@ -388,13 +334,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const provider = getSolanaProvider();
         if (provider) try { await provider.disconnect(); } catch {}
       }
-      await clearSession();
-    } catch {
-      await clearSession();
-    }
-  };
-
-  const clearSession = async () => {
+    } catch {}
     setConnected(false);
     setAddress(null);
     setQuantumBalance(null);
@@ -402,17 +342,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUsdValue(0);
     setEurValue(0);
     setError(null);
-    sessionRef.current = null;
-    sharedSecretRef.current = null;
-    await AsyncStorage.multiRemove([
-      STORAGE_KEYS.WALLET_ADDRESS,
-      STORAGE_KEYS.SESSION,
-      STORAGE_KEYS.SECRET_KEY,
-      STORAGE_KEYS.PUBLIC_KEY,
-    ]);
+    await AsyncStorage.removeItem(WALLET_KEY);
   };
 
-  // Compute voting power from real balance
   const votingPower = quantumBalance ? Math.floor(quantumBalance.amount) : 0;
 
   return (
