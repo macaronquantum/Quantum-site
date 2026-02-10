@@ -242,13 +242,88 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ─── Check for Phantom web callback on mount ─────────────
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const url = window.location.href;
+      if (url.includes('phantom_encryption_public_key') || url.includes('errorCode')) {
+        handlePhantomWebCallback(url);
+      }
+    }
+  }, []);
+
+  // ─── Handle Phantom redirect on web ────────────────────────
+  const handlePhantomWebCallback = async (url: string) => {
+    try {
+      const parsedUrl = new URL(url);
+      const params = parsedUrl.searchParams;
+
+      // Clean URL (remove Phantom params from address bar)
+      if (typeof window !== 'undefined') {
+        const cleanUrl = parsedUrl.origin + parsedUrl.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
+      // Error from Phantom
+      const errorCode = params.get('errorCode');
+      if (errorCode) {
+        setError(params.get('errorMessage') || 'Connection rejected.');
+        setConnecting(false);
+        return;
+      }
+
+      const phantomPubKeyStr = params.get('phantom_encryption_public_key');
+      const nonceStr = params.get('nonce');
+      const dataStr = params.get('data');
+
+      if (!phantomPubKeyStr || !nonceStr || !dataStr) return;
+
+      // Restore the dapp keypair from storage
+      const storedSecretKey = await AsyncStorage.getItem('dappSecretKey');
+      if (!storedSecretKey) {
+        setError('Session expired. Please try connecting again.');
+        return;
+      }
+
+      const secretKey = bs58.decode(storedSecretKey);
+      const phantomPubKey = bs58.decode(phantomPubKeyStr);
+      const nonce = bs58.decode(nonceStr);
+      const encryptedData = bs58.decode(dataStr);
+
+      const sharedSecret = nacl.box.before(phantomPubKey, secretKey);
+      sharedSecretRef.current = sharedSecret;
+
+      const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
+      if (!decrypted) {
+        setError('Failed to decrypt wallet response.');
+        return;
+      }
+
+      const decoded = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      const walletAddress = decoded.public_key;
+      sessionRef.current = decoded.session;
+
+      setConnected(true);
+      setAddress(walletAddress);
+      setConnecting(false);
+      setError(null);
+      await AsyncStorage.setItem('walletAddress', walletAddress);
+      console.log('Wallet connected via Phantom redirect:', walletAddress);
+    } catch (err: any) {
+      console.error('Phantom web callback error:', err);
+      setError('Failed to process wallet connection.');
+      setConnecting(false);
+    }
+  };
+
   // ─── Connect ──────────────────────────────────────────────
   const connectWallet = async () => {
     if (connecting) return;
     setConnecting(true);
+    setError(null);
 
     try {
-      // ── WEB: use browser extension ──
+      // ── WEB: try browser extension first, then Phantom universal link ──
       if (Platform.OS === 'web') {
         const provider = getSolanaProvider();
 
@@ -260,7 +335,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setAddress(addr);
             setError(null);
             await AsyncStorage.setItem('walletAddress', addr);
-            console.log('Wallet connected:', addr);
+            console.log('Wallet connected via extension:', addr);
           } catch (err: any) {
             if (err?.code === 4001) {
               setError('Connection rejected by user.');
@@ -272,13 +347,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // No Solana wallet detected — set inline error
-        setError('NO_WALLET');
-        setConnecting(false);
-        return;
+        // No extension → redirect to Phantom universal link
+        // Save keypair so we can decrypt the response when Phantom redirects back
+        await AsyncStorage.setItem(
+          'dappSecretKey',
+          bs58.encode(Buffer.from(dappKeyPair.current.secretKey))
+        );
+        await AsyncStorage.setItem(
+          'dappPublicKey',
+          bs58.encode(Buffer.from(dappKeyPair.current.publicKey))
+        );
+
+        const currentUrl =
+          typeof window !== 'undefined'
+            ? window.location.origin + window.location.pathname
+            : 'https://quantum-ia.com';
+
+        const params = new URLSearchParams({
+          dapp_encryption_public_key: bs58.encode(
+            Buffer.from(dappKeyPair.current.publicKey)
+          ),
+          cluster: 'mainnet-beta',
+          app_url: currentUrl,
+          redirect_link: currentUrl,
+        });
+
+        const connectUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
+        console.log('Redirecting to Phantom:', connectUrl);
+
+        // Redirect — Phantom will send the user back to our URL with params
+        if (typeof window !== 'undefined') {
+          window.location.href = connectUrl;
+        }
+        return; // Page will unload
       }
 
-      // ── MOBILE: Phantom deep-link ──
+      // ── MOBILE (Expo Go): Phantom deep-link ──
       const redirectUri = Linking.createURL('onConnect');
       const params = new URLSearchParams({
         dapp_encryption_public_key: bs58.encode(
@@ -290,33 +394,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       const connectUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
-      const canOpen = await Linking.canOpenURL('phantom://');
 
-      if (canOpen) {
-        await Linking.openURL(connectUrl);
-        // connecting state stays true until deep-link callback
-      } else {
-        Alert.alert(
-          'Phantom Not Found',
-          'Please install the Phantom wallet app.',
-          [
-            {
-              text: 'Install',
-              onPress: () =>
-                Linking.openURL(
-                  Platform.OS === 'ios'
-                    ? 'https://apps.apple.com/app/phantom-solana-wallet/id1598432977'
-                    : 'https://play.google.com/store/apps/details?id=app.phantom'
-                ),
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
-        setConnecting(false);
-      }
+      // Always try the universal link — it works whether Phantom is installed or not
+      await Linking.openURL(connectUrl);
+      // connecting state stays true until deep-link callback
     } catch (err: any) {
       console.error('connectWallet error:', err);
-      Alert.alert('Error', err?.message || 'Failed to connect.');
+      setError(err?.message || 'Failed to connect wallet.');
       setConnecting(false);
     }
   };
