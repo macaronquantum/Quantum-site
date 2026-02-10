@@ -337,3 +337,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Major rewrite complete: Fixed SHADOWS crash, fixed all missing colors in theme.ts, rewrote landing page for responsiveness (button always visible), implemented real Phantom wallet integration, added form validation to pre-sale, added functional settings to profile, redesigned tab bar to Delta style. Backend endpoints: GET /api/config, POST /api/presale/purchase, GET /api/referral/{address} need testing."
+  - agent: "testing"
+    message: "Backend testing completed successfully: All core endpoints working (GET /api/, /health, /config, /referral/{address}, POST /presale/purchase). Crypto and card payments functional. Stripe integration secure. MongoDB connected. Issue: Status endpoints (GET/POST /api/status) mentioned in review request are NOT implemented in current server.py - may need clarification if these are required."
