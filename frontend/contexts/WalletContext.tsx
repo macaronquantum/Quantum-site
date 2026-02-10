@@ -24,8 +24,11 @@ import {
 // Lazy-load tweetnacl and bs58 to ensure PRNG polyfill is ready
 let nacl: any = null;
 let bs58Module: { encode: (buffer: Uint8Array | number[]) => string; decode: (str: string) => Uint8Array } | null = null;
+let cryptoReady = false;
 
-async function ensureCrypto() {
+async function ensureCrypto(): Promise<void> {
+  if (cryptoReady) return;
+  
   if (!nacl) {
     const naclMod = await import('tweetnacl');
     nacl = naclMod.default || naclMod;
@@ -33,27 +36,30 @@ async function ensureCrypto() {
   }
   if (!bs58Module) {
     const mod = await import('bs58');
-    // Handle both ESM default export and CommonJS module
     bs58Module = mod.default || mod;
-    console.log('[Crypto] bs58 loaded, encode exists:', typeof bs58Module?.encode);
+    console.log('[Crypto] bs58 loaded');
   }
+  cryptoReady = true;
 }
 
-// Helper functions that ensure crypto is loaded before use
+// Helper functions
 async function bs58Encode(buffer: Uint8Array | number[]): Promise<string> {
   await ensureCrypto();
-  if (!bs58Module) throw new Error('bs58 not loaded');
-  return bs58Module.encode(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
+  return bs58Module!.encode(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
 }
 
 async function bs58Decode(str: string): Promise<Uint8Array> {
   await ensureCrypto();
-  if (!bs58Module) throw new Error('bs58 not loaded');
-  return new Uint8Array(bs58Module.decode(str));
+  return new Uint8Array(bs58Module!.decode(str));
 }
 
 // Ensure auth session completes properly
 WebBrowser.maybeCompleteAuthSession();
+
+// ─── Storage Keys ───────────────────────────────────────────
+const WALLET_KEY = 'walletAddress';
+const KEYPAIR_PUBLIC_KEY = 'dappPublicKey';
+const KEYPAIR_SECRET_KEY = 'dappSecretKey';
 
 // ─── Types ──────────────────────────────────────────────────
 export interface WalletState {
@@ -103,8 +109,6 @@ const getSolanaProvider = (): any | null => {
   return null;
 };
 
-const WALLET_KEY = 'walletAddress';
-
 // ─── Provider ───────────────────────────────────────────────
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
@@ -119,22 +123,160 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  // Keypair generated lazily to ensure PRNG polyfill is loaded
+  // In-memory keypair reference
   const dappKeyPair = useRef<{ publicKey: Uint8Array; secretKey: Uint8Array } | null>(null);
-
-  const getOrCreateKeyPair = useCallback(async () => {
-    await ensureCrypto();
-    if (!dappKeyPair.current) {
-      dappKeyPair.current = nacl.box.keyPair();
-    }
-    return dappKeyPair.current;
-  }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
-  // ─── Restore session on mount ──────────────────────────────
+  // ─── Get or create keypair (persisted for redirects) ──────
+  const getOrCreateKeyPair = useCallback(async () => {
+    await ensureCrypto();
+    
+    // Try memory first
+    if (dappKeyPair.current) {
+      return dappKeyPair.current;
+    }
+    
+    // Try to restore from storage (for redirect flows)
+    try {
+      const storedPub = await AsyncStorage.getItem(KEYPAIR_PUBLIC_KEY);
+      const storedSec = await AsyncStorage.getItem(KEYPAIR_SECRET_KEY);
+      
+      if (storedPub && storedSec) {
+        const publicKey = await bs58Decode(storedPub);
+        const secretKey = await bs58Decode(storedSec);
+        dappKeyPair.current = { publicKey, secretKey };
+        console.log('[Wallet] Restored keypair from storage');
+        return dappKeyPair.current;
+      }
+    } catch (e) {
+      console.warn('[Wallet] Failed to restore keypair:', e);
+    }
+    
+    // Generate new keypair
+    const kp = nacl.box.keyPair();
+    dappKeyPair.current = kp;
+    
+    // Persist for redirect flows
+    try {
+      const pubB58 = await bs58Encode(Array.from(kp.publicKey));
+      const secB58 = await bs58Encode(Array.from(kp.secretKey));
+      await AsyncStorage.setItem(KEYPAIR_PUBLIC_KEY, pubB58);
+      await AsyncStorage.setItem(KEYPAIR_SECRET_KEY, secB58);
+      console.log('[Wallet] New keypair generated and stored');
+    } catch (e) {
+      console.warn('[Wallet] Failed to persist keypair:', e);
+    }
+    
+    return dappKeyPair.current;
+  }, []);
+
+  // ─── Decrypt Phantom response ──────────────────────────────
+  const decryptPhantomResponse = useCallback(async (params: URLSearchParams): Promise<string | null> => {
+    try {
+      // Check for Phantom error
+      const errorCode = params.get('errorCode');
+      if (errorCode) {
+        const msg = params.get('errorMessage') || 'Connection rejected.';
+        throw new Error(msg);
+      }
+
+      const phantomPubKeyStr = params.get('phantom_encryption_public_key');
+      const nonceStr = params.get('nonce');
+      const dataStr = params.get('data');
+
+      if (!phantomPubKeyStr || !nonceStr || !dataStr) {
+        console.log('[Wallet] Missing params:', { phantomPubKeyStr: !!phantomPubKeyStr, nonceStr: !!nonceStr, dataStr: !!dataStr });
+        throw new Error('Missing Phantom response parameters.');
+      }
+
+      console.log('[Wallet] Decrypting Phantom response...');
+
+      // Ensure crypto is loaded
+      await ensureCrypto();
+
+      // Decode bs58 values
+      const phantomPubKey = await bs58Decode(phantomPubKeyStr);
+      const nonce = await bs58Decode(nonceStr);
+      const encryptedData = await bs58Decode(dataStr);
+
+      // Get our keypair (must be the same one used to initiate connection)
+      const kp = await getOrCreateKeyPair();
+
+      // Derive shared secret using X25519
+      const sharedSecret = nacl.box.before(phantomPubKey, kp.secretKey);
+
+      // Decrypt the response
+      const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
+
+      if (!decrypted) {
+        throw new Error('Decryption failed — keypair mismatch. Please try connecting again.');
+      }
+
+      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      console.log('[Wallet] Decrypted payload:', JSON.stringify(payload).substring(0, 100));
+
+      return payload.public_key;
+    } catch (err: any) {
+      console.error('[Wallet] Decrypt error:', err?.message);
+      throw err;
+    }
+  }, [getOrCreateKeyPair]);
+
+  // ─── Check URL for Phantom callback (web redirect flow) ───
+  const checkForPhantomCallback = useCallback(async () => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    
+    const url = window.location.href;
+    const params = new URLSearchParams(window.location.search);
+    
+    // Check if this is a Phantom callback
+    if (params.has('phantom_encryption_public_key') || params.has('errorCode')) {
+      console.log('[Wallet] Detected Phantom callback in URL');
+      setConnecting(true);
+      
+      try {
+        if (params.has('errorCode')) {
+          const errMsg = params.get('errorMessage') || 'Connection rejected.';
+          setError(errMsg);
+        } else {
+          const walletAddress = await decryptPhantomResponse(params);
+          if (walletAddress) {
+            setConnected(true);
+            setAddress(walletAddress);
+            await AsyncStorage.setItem(WALLET_KEY, walletAddress);
+            console.log('[Wallet] Connected via redirect:', walletAddress);
+          }
+        }
+      } catch (err: any) {
+        console.error('[Wallet] Callback processing error:', err);
+        setError(err?.message || 'Connection failed.');
+      } finally {
+        setConnecting(false);
+        
+        // Clean URL by removing Phantom params
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+  }, [decryptPhantomResponse]);
+
+  // ─── Initialize: preload crypto & check for callback ──────
   useEffect(() => {
-    restoreSession();
+    const init = async () => {
+      // Preload crypto libraries immediately
+      await ensureCrypto();
+      
+      // Check for Phantom callback in URL
+      await checkForPhantomCallback();
+      
+      // Restore previous session if no callback
+      if (!connected) {
+        await restoreSession();
+      }
+    };
+    
+    init();
   }, []);
 
   // ─── Fetch balances when connected ─────────────────────────
@@ -171,7 +313,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setEurValue(usd * rate);
     } catch (err: any) {
       console.error('[Wallet] Balance fetch error:', err);
-      // Don't set error — wallet IS connected, RPC is just slow
     } finally {
       setLoadingBalances(false);
     }
@@ -203,62 +344,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Restore from stored address (balances will be fetched via useEffect)
       setConnected(true);
       setAddress(storedAddress);
+      console.log('[Wallet] Session restored from storage');
     } catch (err) {
       console.error('[Wallet] Restore error:', err);
-    }
-  };
-
-  // ─── Decrypt Phantom response ──────────────────────────────
-  const decryptPhantomResponse = async (url: string): Promise<string | null> => {
-    try {
-      const parsedUrl = new URL(url);
-      const params = parsedUrl.searchParams;
-
-      // Check for Phantom error
-      const errorCode = params.get('errorCode');
-      if (errorCode) {
-        const msg = params.get('errorMessage') || 'Connection rejected.';
-        throw new Error(msg);
-      }
-
-      const phantomPubKeyStr = params.get('phantom_encryption_public_key');
-      const nonceStr = params.get('nonce');
-      const dataStr = params.get('data');
-
-      if (!phantomPubKeyStr || !nonceStr || !dataStr) {
-        throw new Error('Missing Phantom response parameters.');
-      }
-
-      // Decode bs58 values
-      const phantomPubKey = await bs58Decode(phantomPubKeyStr);
-      const nonce = await bs58Decode(nonceStr);
-      const encryptedData = await bs58Decode(dataStr);
-
-      console.log('[Wallet] Decrypting with keypair...');
-
-      // Get our secret key - this also ensures nacl is loaded
-      const kp = await getOrCreateKeyPair();
-      
-      // Ensure nacl is available before using it
-      await ensureCrypto();
-
-      // Derive shared secret using X25519
-      const sharedSecret = nacl.box.before(phantomPubKey, kp.secretKey);
-
-      // Decrypt the response
-      const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
-
-      if (!decrypted) {
-        throw new Error('Decryption returned null — keypair mismatch.');
-      }
-
-      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
-      console.log('[Wallet] Decrypted payload:', JSON.stringify(payload).substring(0, 100));
-
-      return payload.public_key;
-    } catch (err: any) {
-      console.error('[Wallet] Decrypt error:', err?.message);
-      throw err;
     }
   };
 
@@ -284,18 +372,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             setConnecting(false);
             return;
           } catch (err: any) {
-            setError(err?.code === 4001 ? 'Connection rejected.' : (err?.message || 'Failed.'));
-            setConnecting(false);
-            return;
+            if (err?.code === 4001) {
+              setError('Connection rejected.');
+              setConnecting(false);
+              return;
+            }
+            // Extension failed, fall through to redirect flow
+            console.log('[Wallet] Extension connect failed, trying redirect...');
           }
         }
 
-        // Web without extension: open Phantom in popup, poll for redirect
-        const currentUrl = window.location.origin + window.location.pathname;
+        // ── WEB without extension: REDIRECT flow ──
+        // Crypto is already preloaded, keypair is persisted
+        const kp = await getOrCreateKeyPair();
+        const dappPubKeyB58 = await bs58Encode(Array.from(kp.publicKey));
         
-        // CRITICAL: await the keypair and ensure crypto is loaded
-        const webKp = await getOrCreateKeyPair();
-        const dappPubKeyB58 = await bs58Encode(Array.from(webKp.publicKey));
+        const currentUrl = window.location.origin + window.location.pathname;
 
         const connectParams = new URLSearchParams({
           dapp_encryption_public_key: dappPubKeyB58,
@@ -305,92 +397,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
 
         const connectUrl = `https://phantom.app/ul/v1/connect?${connectParams.toString()}`;
-        console.log('[Wallet] Opening Phantom popup...');
-
-        // Open popup window
-        const popup = window.open(
-          connectUrl,
-          'phantom-connect',
-          'width=420,height=700,top=100,left=100'
-        );
-
-        if (!popup) {
-          setError('Popup blocked. Please allow popups for this site.');
-          setConnecting(false);
-          return;
-        }
-
-        // Poll the popup URL — when Phantom redirects back to our origin, we can read it
-        const pollInterval = setInterval(() => {
-          try {
-            if (!popup || popup.closed) {
-              clearInterval(pollInterval);
-              setConnecting(false);
-              return;
-            }
-
-            // Try to read the popup URL (only works when same origin)
-            const popupUrl = popup.location.href;
-
-            // If the popup redirected back to our origin with Phantom params
-            if (
-              popupUrl &&
-              popupUrl.startsWith(currentUrl) &&
-              popupUrl.includes('phantom_encryption_public_key')
-            ) {
-              clearInterval(pollInterval);
-              popup.close();
-              console.log('[Wallet] Got Phantom callback from popup');
-
-              // Decrypt the response in async context
-              (async () => {
-                try {
-                  const walletAddress = await decryptPhantomResponse(popupUrl);
-                  if (walletAddress) {
-                    setConnected(true);
-                    setAddress(walletAddress);
-                    await AsyncStorage.setItem(WALLET_KEY, walletAddress);
-                    console.log('[Wallet] Connected via popup:', walletAddress);
-                  }
-                } catch (decryptErr: any) {
-                  setError(decryptErr?.message || 'Decryption failed.');
-                }
-                setConnecting(false);
-              })();
-            }
-
-            // Check for error redirect
-            if (popupUrl && popupUrl.startsWith(currentUrl) && popupUrl.includes('errorCode')) {
-              clearInterval(pollInterval);
-              popup.close();
-              const parsedPopup = new URL(popupUrl);
-              setError(parsedPopup.searchParams.get('errorMessage') || 'Connection rejected.');
-              setConnecting(false);
-            }
-          } catch {
-            // Cross-origin — popup is still on phantom.app, keep polling
-          }
-        }, 500);
-
-        // Safety timeout: stop polling after 2 minutes
-        setTimeout(() => {
-          clearInterval(pollInterval);
-          if (connecting) {
-            setConnecting(false);
-          }
-        }, 120000);
-
-        return; // Keep connecting=true until popup returns
+        console.log('[Wallet] Redirecting to Phantom...');
+        console.log('[Wallet] Redirect URL:', currentUrl);
+        
+        // Direct redirect - no popup needed
+        window.location.href = connectUrl;
+        return;
       }
 
-      // ── MOBILE: use expo-web-browser (keeps app alive!) ──
-      // CRITICAL: await the keypair and ensure crypto is loaded
+      // ── MOBILE: use expo-web-browser ──
       const mobileKp = await getOrCreateKeyPair();
       const dappPubKeyB58 = await bs58Encode(Array.from(mobileKp.publicKey));
       const redirectUri = Linking.createURL('onConnect');
 
       console.log('[Wallet] Redirect URI:', redirectUri);
-      console.log('[Wallet] Dapp public key:', dappPubKeyB58.substring(0, 8) + '...');
 
       const connectParams = new URLSearchParams({
         dapp_encryption_public_key: dappPubKeyB58,
@@ -403,8 +423,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       console.log('[Wallet] Opening Phantom auth session...');
 
-      // openAuthSessionAsync opens a browser, waits for redirect back to our scheme,
-      // and returns the result — the app stays alive, keypair stays in memory!
       const result = await WebBrowser.openAuthSessionAsync(connectUrl, redirectUri);
 
       console.log('[Wallet] Auth session result type:', result.type);
@@ -412,8 +430,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (result.type === 'success' && result.url) {
         console.log('[Wallet] Got redirect URL:', result.url.substring(0, 80) + '...');
 
-        // CRITICAL: await the async decryption function
-        const walletAddress = await decryptPhantomResponse(result.url);
+        const resultUrl = new URL(result.url);
+        const walletAddress = await decryptPhantomResponse(resultUrl.searchParams);
 
         if (walletAddress) {
           setConnected(true);
@@ -440,6 +458,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (provider) try { await provider.disconnect(); } catch {}
       }
     } catch {}
+    
     setConnected(false);
     setAddress(null);
     setQuantumBalance(null);
@@ -447,7 +466,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setUsdValue(0);
     setEurValue(0);
     setError(null);
+    
+    // Clear stored data
     await AsyncStorage.removeItem(WALLET_KEY);
+    // Keep keypair for future connections
   };
 
   const votingPower = quantumBalance ? Math.floor(quantumBalance.amount) : 0;
