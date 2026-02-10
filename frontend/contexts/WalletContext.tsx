@@ -272,7 +272,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
         // Web without extension: open Phantom in popup, poll for redirect
         const currentUrl = window.location.origin + window.location.pathname;
-        const dappPubKeyB58 = bs58.encode(Buffer.from(getOrCreateKeyPair().publicKey));
+        
+        // CRITICAL: await the keypair and ensure crypto is loaded
+        const webKp = await getOrCreateKeyPair();
+        const dappPubKeyB58 = bs58.encode(Buffer.from(webKp.publicKey));
 
         const connectParams = new URLSearchParams({
           dapp_encryption_public_key: dappPubKeyB58,
@@ -361,7 +364,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // ── MOBILE: use expo-web-browser (keeps app alive!) ──
-      const mobileKp = getOrCreateKeyPair();
+      // CRITICAL: await the keypair and ensure crypto is loaded
+      const mobileKp = await getOrCreateKeyPair();
       const dappPubKeyB58 = bs58.encode(Buffer.from(mobileKp.publicKey));
       const redirectUri = Linking.createURL('onConnect');
 
@@ -388,7 +392,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (result.type === 'success' && result.url) {
         console.log('[Wallet] Got redirect URL:', result.url.substring(0, 80) + '...');
 
-        const walletAddress = decryptPhantomResponse(result.url);
+        // CRITICAL: await the async decryption function
+        const walletAddress = await decryptPhantomResponse(result.url);
 
         if (walletAddress) {
           setConnected(true);
