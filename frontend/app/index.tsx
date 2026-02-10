@@ -1,78 +1,73 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useRouter, Link } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
 
 export default function Index() {
   const router = useRouter();
 
   return (
-    <LinearGradient
-      colors={[COLORS.black, COLORS.darkBlue, COLORS.mediumBlue]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <StatusBar style="light" />
       
       <View style={styles.content}>
-        {/* Logo Area */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>Q</Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>Q</Text>
+            </View>
           </View>
-          <Text style={styles.title}>QUANTUM IA</Text>
-          <Text style={styles.subtitle}>Web3 DAO Governance Platform</Text>
+          <Text style={styles.title}>QUANTUM</Text>
+          <Text style={styles.subtitle}>Institutional DAO Governance Platform</Text>
         </View>
 
-        {/* Feature Highlights */}
+        {/* Value Props */}
         <View style={styles.features}>
-          <FeatureItem 
-            icon="💼" 
-            title="Portfolio Management"
-            description="Track your Quantum & Co-Quantum holdings"
-          />
-          <FeatureItem 
-            icon="🚀" 
-            title="AI Investments"
-            description="Vote on curated AI opportunities monthly"
-          />
-          <FeatureItem 
-            icon="⚡" 
-            title="DAO Governance"
-            description="Your tokens = Your voting power"
-          />
+          <View style={styles.feature}>
+            <View style={styles.featureIconContainer}>
+              <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
+            </View>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Institutional Grade</Text>
+              <Text style={styles.featureDescription}>Bank-level security and governance</Text>
+            </View>
+          </View>
+
+          <View style={styles.feature}>
+            <View style={styles.featureIconContainer}>
+              <Ionicons name="trending-up-outline" size={20} color={COLORS.primary} />
+            </View>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>AI Investment DAO</Text>
+              <Text style={styles.featureDescription}>Vote on curated AI opportunities</Text>
+            </View>
+          </View>
+
+          <View style={styles.feature}>
+            <View style={styles.featureIconContainer}>
+              <Ionicons name="wallet-outline" size={20} color={COLORS.primary} />
+            </View>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>Token-Based Power</Text>
+              <Text style={styles.featureDescription}>Voting weight proportional to holdings</Text>
+            </View>
+          </View>
         </View>
 
-        {/* CTA Button */}
-        <Link href="/(tabs)/portfolio" asChild>
-          <Pressable 
-            style={styles.button}
-          >
-            <LinearGradient
-              colors={[COLORS.electricBlue, COLORS.mediumBlue]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.buttonGradient}
-            >
-              <Text style={styles.buttonText}>Enter Platform</Text>
-            </LinearGradient>
-          </Pressable>
-        </Link>
+        {/* CTA */}
+        <View style={styles.ctaSection}>
+          <Link href="/(tabs)/portfolio" asChild>
+            <Pressable style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>Access Platform</Text>
+              <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
+            </Pressable>
+          </Link>
 
-        <Text style={styles.disclaimer}>Built on Solana • Demo Version</Text>
-      </View>
-    </LinearGradient>
-  );
-}
-
-function FeatureItem({ icon, title, description }: { icon: string; title: string; description: string }) {
-  return (
-    <View style={styles.featureItem}>
-      <Text style={styles.featureIcon}>{icon}</Text>
-      <View style={styles.featureText}>
-        <Text style={styles.featureTitle}>{title}</Text>
-        <Text style={styles.featureDescription}>{description}</Text>
+          <Text style={styles.disclaimer}>Built on Solana • Testnet Version</Text>
+        </View>
       </View>
     </View>
   );
@@ -81,102 +76,99 @@ function FeatureItem({ icon, title, description }: { icon: string; title: string
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
   },
   content: {
     flex: 1,
     paddingHorizontal: SPACING.lg,
-    justifyContent: 'space-between',
     paddingTop: 80,
     paddingBottom: 50,
+    justifyContent: 'space-between',
+  },
+  header: {
+    alignItems: 'center',
   },
   logoContainer: {
-    alignItems: 'center',
-    marginTop: SPACING.xxl,
+    marginBottom: SPACING.xl,
   },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.electricBlue,
+  logo: {
+    width: 80,
+    height: 80,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.lg,
-    shadowColor: COLORS.electricBlue,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 10,
   },
   logoText: {
-    fontSize: 64,
-    fontWeight: '900',
-    color: COLORS.white,
+    fontSize: 48,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textPrimary,
   },
   title: {
     fontSize: FONT_SIZES.xxxl,
-    fontWeight: '900',
-    color: COLORS.white,
-    letterSpacing: 2,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textPrimary,
+    letterSpacing: 4,
     marginBottom: SPACING.sm,
   },
   subtitle: {
     fontSize: FONT_SIZES.md,
-    color: COLORS.lightGray,
+    color: COLORS.textSecondary,
     textAlign: 'center',
   },
   features: {
     gap: SPACING.md,
   },
-  featureItem: {
+  feature: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.glassLight,
-    padding: SPACING.md,
-    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
   },
-  featureIcon: {
-    fontSize: 32,
+  featureIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: COLORS.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: SPACING.md,
   },
-  featureText: {
+  featureContent: {
     flex: 1,
   },
   featureTitle: {
     fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.white,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   featureDescription: {
     fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
+    color: COLORS.textSecondary,
   },
-  button: {
-    marginTop: SPACING.xl,
-    borderRadius: BORDER_RADIUS.md,
-    overflow: 'hidden',
-    shadowColor: COLORS.electricBlue,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
+  ctaSection: {
+    gap: SPACING.lg,
   },
-  buttonGradient: {
-    paddingVertical: SPACING.md + 4,
+  primaryButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
   },
-  buttonText: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: 1,
+  primaryButtonText: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
   },
   disclaimer: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.lightGray,
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textTertiary,
     textAlign: 'center',
-    marginTop: SPACING.lg,
   },
 });
