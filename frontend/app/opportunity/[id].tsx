@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
 import { MOCK_OPPORTUNITIES, Opportunity } from '../../data/mockOpportunities';
 import { useWallet } from '../../contexts/WalletContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -30,18 +30,14 @@ export default function OpportunityDetail() {
 
   useEffect(() => {
     const opp = MOCK_OPPORTUNITIES.find((o) => o.id === id);
-    if (opp) {
-      setOpportunity(opp);
-    }
+    if (opp) setOpportunity(opp);
     loadUserVote();
   }, [id]);
 
   const loadUserVote = async () => {
     try {
       const vote = await AsyncStorage.getItem(`vote_${id}`);
-      if (vote) {
-        setUserVote(vote as 'yes' | 'no');
-      }
+      if (vote) setUserVote(vote as 'yes' | 'no');
     } catch (error) {
       console.error('Error loading vote:', error);
     }
@@ -49,25 +45,19 @@ export default function OpportunityDetail() {
 
   const handleVote = async (vote: 'yes' | 'no') => {
     if (!connected) {
-      Alert.alert('Wallet Not Connected', 'Please connect your wallet to vote.');
+      Alert.alert('Wallet Required', 'Please connect your wallet to vote.');
       return;
     }
-
     if (userVote) {
-      Alert.alert('Already Voted', 'You have already cast your vote for this opportunity.');
+      Alert.alert('Already Voted', 'You have already voted on this opportunity.');
       return;
     }
-
     try {
       await AsyncStorage.setItem(`vote_${id}`, vote);
       setUserVote(vote);
-      Alert.alert(
-        'Vote Recorded',
-        `Your vote of ${votingPower.toLocaleString()} voting power has been recorded for ${vote.toUpperCase()}.`
-      );
+      Alert.alert('Vote Recorded', `Your ${votingPower.toLocaleString()} voting power has been applied to ${vote.toUpperCase()}.`);
     } catch (error) {
-      console.error('Error saving vote:', error);
-      Alert.alert('Error', 'Failed to record your vote. Please try again.');
+      Alert.alert('Error', 'Failed to record your vote.');
     }
   };
 
@@ -83,71 +73,35 @@ export default function OpportunityDetail() {
   const yesPercentage = totalVotes > 0 ? (opportunity.votesYes / totalVotes) * 100 : 0;
   const noPercentage = 100 - yesPercentage;
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat('en-US').format(value);
-  };
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(value);
+  const formatNumber = (value: number) => new Intl.NumberFormat('en-US').format(value);
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header with Image */}
+
+      {/* Header Image */}
       <View style={styles.headerImageContainer}>
-        <Image
-          source={{ uri: opportunity.videoThumbnail }}
-          style={styles.headerImage}
-        />
-        <LinearGradient
-          colors={['transparent', COLORS.black]}
-          style={styles.headerImageOverlay}
-        />
-        
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-          activeOpacity={0.8}
-        >
+        <Image source={{ uri: opportunity.videoThumbnail }} style={styles.headerImage} />
+        <LinearGradient colors={['transparent', COLORS.background]} style={styles.headerImageOverlay} />
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.8}>
           <View style={styles.backButtonInner}>
-            <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+            <Ionicons name="arrow-back" size={22} color={COLORS.textPrimary} />
           </View>
         </TouchableOpacity>
-
-        {/* Play Button Overlay */}
-        <View style={styles.playButtonContainer}>
-          <TouchableOpacity style={styles.playButton} activeOpacity={0.8}>
-            <Ionicons name="play" size={32} color={COLORS.white} />
-          </TouchableOpacity>
-          <Text style={styles.playButtonLabel}>Pitch Video</Text>
-        </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Company Header */}
         <View style={styles.companyHeader}>
-          <View style={styles.companyHeaderTop}>
-            <View style={styles.companyInfo}>
-              <Text style={styles.companyName}>{opportunity.companyName}</Text>
-              <View style={styles.companyMeta}>
-                <View style={styles.sectorBadge}>
-                  <Text style={styles.sectorText}>{opportunity.sector}</Text>
-                </View>
-                <Text style={styles.metaSeparator}>•</Text>
-                <Text style={styles.metaText}>{opportunity.stage}</Text>
-              </View>
+          <Text style={styles.companyName}>{opportunity.companyName}</Text>
+          <View style={styles.companyMeta}>
+            <View style={styles.sectorBadge}>
+              <Text style={styles.sectorText}>{opportunity.sector}</Text>
             </View>
+            <Text style={styles.metaSeparator}>•</Text>
+            <Text style={styles.metaText}>{opportunity.stage}</Text>
           </View>
           <Text style={styles.overview}>{opportunity.overview}</Text>
         </View>
@@ -165,7 +119,7 @@ export default function OpportunityDetail() {
           </View>
         </View>
 
-        {/* Financial Data */}
+        {/* Financials */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Financials</Text>
           <View style={styles.financialGrid}>
@@ -182,12 +136,9 @@ export default function OpportunityDetail() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Meet the Founder</Text>
           <View style={styles.founderVideoCard}>
-            <Image
-              source={{ uri: opportunity.founderVideoThumbnail }}
-              style={styles.founderVideoImage}
-            />
+            <Image source={{ uri: opportunity.founderVideoThumbnail }} style={styles.founderVideoImage} />
             <TouchableOpacity style={styles.founderPlayButton} activeOpacity={0.8}>
-              <Ionicons name="play-circle" size={64} color={COLORS.white} />
+              <Ionicons name="play-circle" size={56} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -199,21 +150,20 @@ export default function OpportunityDetail() {
             {opportunity.roadmap.map((item, index) => (
               <View key={index} style={styles.roadmapItem}>
                 <View style={styles.roadmapDot} />
-                <View style={styles.roadmapLine} />
+                {index < opportunity.roadmap.length - 1 && <View style={styles.roadmapLine} />}
                 <Text style={styles.roadmapText}>{item}</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* Voting Section */}
+        {/* DAO Voting */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>DAO Voting</Text>
-          
-          {/* Voting Power Display */}
+
           {connected && (
             <View style={styles.votingPowerCard}>
-              <Ionicons name="flash" size={24} color={COLORS.gold} />
+              <Ionicons name="flash" size={22} color={COLORS.warning} />
               <View style={styles.votingPowerInfo}>
                 <Text style={styles.votingPowerLabel}>Your Voting Power</Text>
                 <Text style={styles.votingPowerValue}>{formatNumber(votingPower)}</Text>
@@ -221,112 +171,63 @@ export default function OpportunityDetail() {
             </View>
           )}
 
-          {/* Vote Progress */}
           <View style={styles.voteProgressCard}>
             <View style={styles.voteProgressHeader}>
               <Text style={styles.voteProgressTitle}>Current Results</Text>
-              <Text style={styles.voteDeadline}>
-                Ends {format(opportunity.votingDeadline, 'MMM dd, yyyy')}
-              </Text>
+              <Text style={styles.voteDeadline}>Ends {format(opportunity.votingDeadline, 'MMM dd, yyyy')}</Text>
             </View>
-            
             <View style={styles.voteStats}>
               <View style={styles.voteStat}>
-                <Text style={styles.voteStatValue}>{yesPercentage.toFixed(1)}%</Text>
+                <Text style={styles.voteStatValueYes}>{yesPercentage.toFixed(1)}%</Text>
                 <Text style={styles.voteStatLabel}>YES ({formatNumber(opportunity.votesYes)})</Text>
               </View>
               <View style={styles.voteStat}>
-                <Text style={[styles.voteStatValue, { color: COLORS.error }]}>{noPercentage.toFixed(1)}%</Text>
+                <Text style={styles.voteStatValueNo}>{noPercentage.toFixed(1)}%</Text>
                 <Text style={styles.voteStatLabel}>NO ({formatNumber(opportunity.votesNo)})</Text>
               </View>
             </View>
-
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBarYes, { width: `${yesPercentage}%` }]} />
               <View style={[styles.progressBarNo, { width: `${noPercentage}%` }]} />
             </View>
           </View>
 
-          {/* Vote Buttons */}
           {opportunity.status === 'Open' && (
             <View style={styles.voteButtons}>
               <TouchableOpacity
-                style={[
-                  styles.voteButton,
-                  userVote === 'yes' && styles.voteButtonActive,
-                ]}
+                style={[styles.voteButton, userVote === 'yes' && styles.voteButtonActiveYes]}
                 onPress={() => handleVote('yes')}
                 disabled={!!userVote}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={
-                    userVote === 'yes'
-                      ? [COLORS.success, COLORS.success]
-                      : [COLORS.glassLight, COLORS.glassLight]
-                  }
-                  style={styles.voteButtonGradient}
-                >
-                  <Ionicons
-                    name="checkmark-circle"
-                    size={24}
-                    color={userVote === 'yes' ? COLORS.white : COLORS.success}
-                  />
-                  <Text
-                    style={[
-                      styles.voteButtonText,
-                      userVote === 'yes' && styles.voteButtonTextActive,
-                    ]}
-                  >
-                    {userVote === 'yes' ? 'Voted YES' : 'Vote YES'}
-                  </Text>
-                </LinearGradient>
+                <Ionicons name="checkmark-circle" size={22} color={userVote === 'yes' ? COLORS.textPrimary : COLORS.success} />
+                <Text style={[styles.voteButtonText, userVote === 'yes' && { color: COLORS.textPrimary }]}>
+                  {userVote === 'yes' ? 'Voted YES' : 'Vote YES'}
+                </Text>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={[
-                  styles.voteButton,
-                  userVote === 'no' && styles.voteButtonActive,
-                ]}
+                style={[styles.voteButton, userVote === 'no' && styles.voteButtonActiveNo]}
                 onPress={() => handleVote('no')}
                 disabled={!!userVote}
                 activeOpacity={0.8}
               >
-                <LinearGradient
-                  colors={
-                    userVote === 'no'
-                      ? [COLORS.error, COLORS.error]
-                      : [COLORS.glassLight, COLORS.glassLight]
-                  }
-                  style={styles.voteButtonGradient}
-                >
-                  <Ionicons
-                    name="close-circle"
-                    size={24}
-                    color={userVote === 'no' ? COLORS.white : COLORS.error}
-                  />
-                  <Text
-                    style={[
-                      styles.voteButtonText,
-                      userVote === 'no' && styles.voteButtonTextActive,
-                    ]}
-                  >
-                    {userVote === 'no' ? 'Voted NO' : 'Vote NO'}
-                  </Text>
-                </LinearGradient>
+                <Ionicons name="close-circle" size={22} color={userVote === 'no' ? COLORS.textPrimary : COLORS.error} />
+                <Text style={[styles.voteButtonText, userVote === 'no' && { color: COLORS.textPrimary }]}>
+                  {userVote === 'no' ? 'Voted NO' : 'Vote NO'}
+                </Text>
               </TouchableOpacity>
             </View>
           )}
 
           {opportunity.status !== 'Open' && (
             <View style={styles.closedBanner}>
-              <Ionicons name="lock-closed" size={20} color={COLORS.lightGray} />
+              <Ionicons name="lock-closed" size={18} color={COLORS.textSecondary} />
               <Text style={styles.closedBannerText}>Voting is {opportunity.status.toLowerCase()}</Text>
             </View>
           )}
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
@@ -335,7 +236,7 @@ export default function OpportunityDetail() {
 function FinancialItem({ icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <View style={styles.financialItem}>
-      <Ionicons name={icon} size={20} color={COLORS.electricBlue} />
+      <Ionicons name={icon} size={18} color={COLORS.primary} />
       <View style={styles.financialItemContent}>
         <Text style={styles.financialLabel}>{label}</Text>
         <Text style={styles.financialValue}>{value}</Text>
@@ -345,356 +246,118 @@ function FinancialItem({ icon, label, value }: { icon: any; label: string; value
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.black,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.black,
-  },
-  loadingText: {
-    color: COLORS.white,
-    fontSize: FONT_SIZES.md,
-  },
-  headerImageContainer: {
-    width: '100%',
-    height: 300,
-    position: 'relative',
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-  },
-  headerImageOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 150,
-  },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: SPACING.md,
-  },
-  backButtonInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.glassDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  playButtonContainer: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -50 }, { translateY: -50 }],
-    alignItems: 'center',
-  },
-  playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.glassDark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.sm,
-  },
-  playButtonLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.white,
-    fontWeight: '600',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-  },
-  companyHeader: {
-    marginBottom: SPACING.xl,
-  },
-  companyHeaderTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-  },
-  companyInfo: {
-    flex: 1,
-  },
-  companyName: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '900',
-    color: COLORS.white,
-    marginBottom: SPACING.sm,
-  },
-  companyMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  sectorBadge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.mediumBlue,
-  },
-  sectorText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.electricBlue,
-    fontWeight: '600',
-  },
-  metaSeparator: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-  },
-  metaText: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-  },
-  overview: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.lightGray,
-    lineHeight: 24,
-  },
-  section: {
-    marginBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginBottom: SPACING.md,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
+  loadingText: { color: COLORS.textSecondary, fontSize: FONT_SIZES.md },
+  headerImageContainer: { width: '100%', height: 280, position: 'relative' },
+  headerImage: { width: '100%', height: '100%' },
+  headerImageOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 140 },
+  backButton: { position: 'absolute', top: 50, left: SPACING.base },
+  backButtonInner: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
+  companyHeader: { marginBottom: SPACING.xl },
+  companyName: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  companyMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
+  sectorBadge: { paddingHorizontal: SPACING.sm, paddingVertical: 3, borderRadius: BORDER_RADIUS.sm, backgroundColor: COLORS.mediumBlue },
+  sectorText: { fontSize: FONT_SIZES.xs, color: COLORS.primary, fontWeight: FONT_WEIGHTS.semibold },
+  metaSeparator: { fontSize: FONT_SIZES.sm, color: COLORS.textTertiary },
+  metaText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+  overview: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 22 },
+  section: { marginBottom: SPACING.xl },
+  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.md },
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   metricCard: {
     width: (width - SPACING.lg * 2 - SPACING.sm) / 2,
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
   },
-  metricValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '900',
-    color: COLORS.electricBlue,
-    marginBottom: SPACING.xs,
-  },
-  metricLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-  },
-  financialGrid: {
-    gap: SPACING.sm,
-  },
+  metricValue: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.primary, marginBottom: SPACING.xs },
+  metricLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
+  financialGrid: { gap: SPACING.sm },
   financialItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     gap: SPACING.md,
   },
-  financialItemContent: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  financialLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-  },
-  financialValue: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  founderVideoCard: {
-    width: '100%',
-    height: 200,
-    borderRadius: BORDER_RADIUS.md,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  founderVideoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  founderPlayButton: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -32 }, { translateY: -32 }],
-  },
-  roadmapContainer: {
-    gap: SPACING.md,
-  },
-  roadmapItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    position: 'relative',
-  },
-  roadmapDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.electricBlue,
-    marginRight: SPACING.md,
-    marginTop: 4,
-    zIndex: 2,
-  },
-  roadmapLine: {
-    position: 'absolute',
-    left: 5.5,
-    top: 16,
-    bottom: -16,
-    width: 1,
-    backgroundColor: COLORS.border,
-    zIndex: 1,
-  },
-  roadmapText: {
-    flex: 1,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-    lineHeight: 20,
-  },
+  financialItemContent: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  financialLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+  financialValue: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary },
+  founderVideoCard: { width: '100%', height: 200, borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', position: 'relative' },
+  founderVideoImage: { width: '100%', height: '100%' },
+  founderPlayButton: { position: 'absolute', top: '50%', left: '50%', transform: [{ translateX: -28 }, { translateY: -28 }] },
+  roadmapContainer: { gap: SPACING.md },
+  roadmapItem: { flexDirection: 'row', alignItems: 'flex-start', position: 'relative' },
+  roadmapDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.primary, marginRight: SPACING.md, marginTop: 5, zIndex: 2 },
+  roadmapLine: { position: 'absolute', left: 4.5, top: 15, bottom: -16, width: 1, backgroundColor: COLORS.border, zIndex: 1 },
+  roadmapText: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, lineHeight: 20 },
   votingPowerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.gold,
-    borderRadius: BORDER_RADIUS.md,
+    borderColor: COLORS.warning + '40',
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
     gap: SPACING.md,
   },
-  votingPowerInfo: {
-    flex: 1,
-  },
-  votingPowerLabel: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.lightGray,
-    marginBottom: 4,
-  },
-  votingPowerValue: {
-    fontSize: FONT_SIZES.xl,
-    fontWeight: '900',
-    color: COLORS.gold,
-  },
+  votingPowerInfo: { flex: 1 },
+  votingPowerLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: 3 },
+  votingPowerValue: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.warning },
   voteProgressCard: {
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.base,
     marginBottom: SPACING.md,
   },
-  voteProgressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  voteProgressTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  voteDeadline: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.lightGray,
-  },
-  voteStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: SPACING.md,
-  },
-  voteStat: {
-    alignItems: 'center',
-  },
-  voteStatValue: {
-    fontSize: FONT_SIZES.xxl,
-    fontWeight: '900',
-    color: COLORS.success,
-    marginBottom: 4,
-  },
-  voteStatLabel: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.lightGray,
-  },
-  progressBarContainer: {
-    flexDirection: 'row',
-    height: 8,
-    backgroundColor: COLORS.mediumGray,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressBarYes: {
-    height: '100%',
-    backgroundColor: COLORS.success,
-  },
-  progressBarNo: {
-    height: '100%',
-    backgroundColor: COLORS.error,
-  },
-  voteButtons: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
+  voteProgressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  voteProgressTitle: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary },
+  voteDeadline: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary },
+  voteStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: SPACING.md },
+  voteStat: { alignItems: 'center' },
+  voteStatValueYes: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.success, marginBottom: 3 },
+  voteStatValueNo: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.error, marginBottom: 3 },
+  voteStatLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
+  progressBarContainer: { flexDirection: 'row', height: 6, backgroundColor: COLORS.mediumGray, borderRadius: 3, overflow: 'hidden' },
+  progressBarYes: { height: '100%', backgroundColor: COLORS.success },
+  progressBarNo: { height: '100%', backgroundColor: COLORS.error },
+  voteButtons: { flexDirection: 'row', gap: SPACING.md },
   voteButton: {
     flex: 1,
-    borderRadius: BORDER_RADIUS.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  voteButtonActive: {
-    borderColor: 'transparent',
-  },
-  voteButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
     gap: SPACING.sm,
+    borderRadius: BORDER_RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    paddingVertical: SPACING.md,
   },
-  voteButtonText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: '700',
-    color: COLORS.white,
-  },
-  voteButtonTextActive: {
-    color: COLORS.white,
-  },
+  voteButtonActiveYes: { backgroundColor: COLORS.success, borderColor: COLORS.success },
+  voteButtonActiveNo: { backgroundColor: COLORS.error, borderColor: COLORS.error },
+  voteButtonText: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary },
   closedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.glassLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     gap: SPACING.sm,
   },
-  closedBannerText: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.lightGray,
-    fontWeight: '600',
-  },
+  closedBannerText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, fontWeight: FONT_WEIGHTS.medium },
 });
