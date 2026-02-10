@@ -168,8 +168,44 @@ backend:
         agent: "testing"
         comment: "Backend server running on port 8001 via supervisor, accessible via external URL, CORS configured, proper API prefix /api"
 
+  - task: "Pre-sale purchase endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "POST /api/presale/purchase endpoint, handles card (Stripe checkout) and crypto payments"
+
+  - task: "Pre-sale config endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/config returns token price and other config. Verified working via frontend calls."
+
+  - task: "Referral data endpoint"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/referral/{address} returns referral code and stats for the given wallet address"
+
 frontend:
-  - task: "Landing page with app intro"
+  - task: "Landing page responsive with visible CTA button"
     implemented: true
     working: true
     file: "app/index.tsx"
@@ -179,9 +215,9 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Beautiful landing page with gradient, logo, features, and CTA button"
+        comment: "Rewrote landing page with pinned bottom button - always visible on all screen sizes. Logo with rounded corners. Using TouchableOpacity + useRouter for navigation."
   
-  - task: "Wallet connection (Solana demo)"
+  - task: "Phantom Wallet connection (real)"
     implemented: true
     working: true
     file: "contexts/WalletContext.tsx"
@@ -191,9 +227,9 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Wallet context with demo Solana address generation, mock balances stored in AsyncStorage"
+        comment: "Real Phantom integration: web uses browser extension API (window.phantom.solana), mobile uses deep-link to Phantom app. Handles connect, disconnect, session restore. Shows alert if Phantom not installed."
   
-  - task: "Portfolio screen with token balances"
+  - task: "Portfolio screen with wallet connect"
     implemented: true
     working: true
     file: "app/(tabs)/portfolio.tsx"
@@ -203,9 +239,9 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Portfolio shows Quantum & Co-Quantum balances, USD values ($2.50 rate), governance power calculation"
+        comment: "Shows Connect Phantom button when disconnected, portfolio with token balances and logo when connected"
   
-  - task: "Investment opportunities feed"
+  - task: "AI Opportunities feed with filters"
     implemented: true
     working: true
     file: "app/(tabs)/opportunities.tsx"
@@ -215,33 +251,21 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Feed displays 5 AI companies with filters (All/Open/Closed/Funded), pull-to-refresh, voting progress"
+        comment: "Feed displays 5 AI companies with filters (All/Open/Closed/Funded), pull-to-refresh, voting progress bars, thumbnails"
   
-  - task: "Investment opportunity detail page"
+  - task: "Pre-Sale form with validation"
     implemented: true
     working: true
-    file: "app/opportunity/[id].tsx"
+    file: "app/(tabs)/presale.tsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Detail page with company overview, financials, key metrics, placeholder video thumbnails, roadmap, and voting section"
-  
-  - task: "DAO voting functionality"
-    implemented: true
-    working: true
-    file: "app/opportunity/[id].tsx"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: true
-        agent: "main"
-        comment: "Voting power based on token holdings (1 Quantum = 1 vote, 1 Co-Quantum = 2 votes), votes stored in AsyncStorage, prevents duplicate voting"
-  
-  - task: "Profile screen with settings"
+        comment: "Full form with inline validation errors (red borders + error text), payment method selection (card/crypto), logo integration, connects to backend API"
+
+  - task: "Profile with functional settings"
     implemented: true
     working: true
     file: "app/(tabs)/profile.tsx"
@@ -251,31 +275,43 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "Profile displays wallet address, token holdings, governance stats, settings, legal links, disconnect button"
-  
-  - task: "Navigation structure (tabs + stacks)"
+        comment: "Functional toggles for notifications/price alerts, network switcher (mainnet/devnet), clipboard copy, disconnect with confirmation dialog. Settings persisted via AsyncStorage."
+
+  - task: "Referral/Affiliation page"
     implemented: true
     working: true
-    file: "app/(tabs)/_layout.tsx, app/_layout.tsx"
+    file: "app/(tabs)/affiliation.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Referral dashboard with code display, copy/share buttons, stats grid, commission tracking"
+
+  - task: "Delta-style tab bar design"
+    implemented: true
+    working: true
+    file: "app/(tabs)/_layout.tsx"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Bottom tab navigation with Portfolio, Opportunities, Profile tabs. Stack navigation for detail screens"
-  
-  - task: "Premium UI/UX design"
+        comment: "Flat dark tab bar (#0F0F0F), purple active state, filled/outline icon toggle, subtle border"
+
+  - task: "Consistent theme with all colors defined"
     implemented: true
     working: true
-    file: "constants/theme.ts, all screen files"
+    file: "constants/theme.ts"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
-        comment: "Dark blue/black/white color scheme, futuristic design, smooth gradients, glassmorphism effects, professional institutional-grade UI"
+        comment: "Added all missing colors (black, white, electricBlue, darkBlue, etc.), added SHADOWS object with subtle/medium/strong presets. Fixed SHADOWS.subtle crash."
 
 metadata:
   created_by: "main_agent"
