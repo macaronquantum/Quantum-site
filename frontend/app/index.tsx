@@ -93,15 +93,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    flexGrow: 1,
-    minHeight: height - 100,
-  },
-  content: {
-    flex: 1,
     paddingHorizontal: SPACING.xl,
     paddingTop: SPACING.xxl,
     paddingBottom: SPACING.xxxl,
-    justifyContent: 'space-between',
+  },
+  content: {
+    paddingVertical: SPACING.xl,
+    gap: SPACING.xxxl,
   },
   header: {
     alignItems: 'center',
