@@ -89,10 +89,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.xl,
     paddingBottom: SPACING.xl,
-    gap: SPACING.xxxl,
+    gap: SPACING.xl,
   },
   header: {
     alignItems: 'center',
