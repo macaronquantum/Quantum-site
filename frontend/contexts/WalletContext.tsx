@@ -353,6 +353,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.multiRemove(['walletAddress', 'phantomSession']);
   };
 
+  // Compute voting power from real balance
+  const votingPower = quantumBalance ? Math.floor(quantumBalance.amount) : 0;
+
   return (
     <WalletContext.Provider
       value={{
@@ -365,6 +368,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         eurValue,
         eurRate,
         loadingBalances,
+        votingPower,
         connectWallet,
         disconnectWallet,
         refreshBalances,
