@@ -319,19 +319,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
               popup.close();
               console.log('[Wallet] Got Phantom callback from popup');
 
-              // Decrypt the response
-              try {
-                const walletAddress = decryptPhantomResponse(popupUrl);
-                if (walletAddress) {
-                  setConnected(true);
-                  setAddress(walletAddress);
-                  AsyncStorage.setItem(WALLET_KEY, walletAddress);
-                  console.log('[Wallet] Connected via popup:', walletAddress);
+              // Decrypt the response in async context
+              (async () => {
+                try {
+                  const walletAddress = await decryptPhantomResponse(popupUrl);
+                  if (walletAddress) {
+                    setConnected(true);
+                    setAddress(walletAddress);
+                    await AsyncStorage.setItem(WALLET_KEY, walletAddress);
+                    console.log('[Wallet] Connected via popup:', walletAddress);
+                  }
+                } catch (decryptErr: any) {
+                  setError(decryptErr?.message || 'Decryption failed.');
                 }
-              } catch (decryptErr: any) {
-                setError(decryptErr?.message || 'Decryption failed.');
-              }
-              setConnecting(false);
+                setConnecting(false);
+              })();
             }
 
             // Check for error redirect
