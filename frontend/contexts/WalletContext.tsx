@@ -65,12 +65,17 @@ const KEYPAIR_SECRET_KEY = 'phantom_dapp_secret_key';
 function webStorageSet(key: string, value: string): void {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.setItem(key, value);
+    // Verify write
+    const verify = window.localStorage.getItem(key);
+    console.log(`[Storage] SET ${key}: wrote ${value.length} chars, verified: ${verify === value}`);
   }
 }
 
 function webStorageGet(key: string): string | null {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-    return window.localStorage.getItem(key);
+    const value = window.localStorage.getItem(key);
+    console.log(`[Storage] GET ${key}: ${value ? value.substring(0, 12) + '...' : 'null'}`);
+    return value;
   }
   return null;
 }
@@ -78,6 +83,7 @@ function webStorageGet(key: string): string | null {
 function webStorageRemove(key: string): void {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
     window.localStorage.removeItem(key);
+    console.log(`[Storage] REMOVE ${key}`);
   }
 }
 
