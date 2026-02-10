@@ -154,26 +154,49 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     
     // Try memory first
     if (dappKeyPair.current) {
+      console.log('[Wallet] Using keypair from memory');
       return dappKeyPair.current;
     }
     
-    // Try to restore from storage (for redirect flows)
-    try {
-      const storedPub = await AsyncStorage.getItem(KEYPAIR_PUBLIC_KEY);
-      const storedSec = await AsyncStorage.getItem(KEYPAIR_SECRET_KEY);
+    // On web, use localStorage (synchronous, survives redirects)
+    if (Platform.OS === 'web') {
+      const storedPub = webStorageGet(KEYPAIR_PUBLIC_KEY);
+      const storedSec = webStorageGet(KEYPAIR_SECRET_KEY);
       
       if (storedPub && storedSec) {
-        const publicKey = await bs58Decode(storedPub);
-        const secretKey = await bs58Decode(storedSec);
-        dappKeyPair.current = { publicKey, secretKey };
-        console.log('[Wallet] Restored keypair from storage');
-        return dappKeyPair.current;
+        try {
+          const publicKey = await bs58Decode(storedPub);
+          const secretKey = await bs58Decode(storedSec);
+          dappKeyPair.current = { publicKey, secretKey };
+          console.log('[Wallet] Restored keypair from localStorage, pubKey:', storedPub.substring(0, 8) + '...');
+          return dappKeyPair.current;
+        } catch (e) {
+          console.error('[Wallet] Failed to decode stored keypair:', e);
+          // Clear corrupted data
+          webStorageRemove(KEYPAIR_PUBLIC_KEY);
+          webStorageRemove(KEYPAIR_SECRET_KEY);
+        }
       }
-    } catch (e) {
-      console.warn('[Wallet] Failed to restore keypair:', e);
+    } else {
+      // Mobile: use AsyncStorage
+      try {
+        const storedPub = await AsyncStorage.getItem(KEYPAIR_PUBLIC_KEY);
+        const storedSec = await AsyncStorage.getItem(KEYPAIR_SECRET_KEY);
+        
+        if (storedPub && storedSec) {
+          const publicKey = await bs58Decode(storedPub);
+          const secretKey = await bs58Decode(storedSec);
+          dappKeyPair.current = { publicKey, secretKey };
+          console.log('[Wallet] Restored keypair from AsyncStorage');
+          return dappKeyPair.current;
+        }
+      } catch (e) {
+        console.warn('[Wallet] Failed to restore keypair:', e);
+      }
     }
     
     // Generate new keypair
+    console.log('[Wallet] Generating new keypair...');
     const kp = nacl.box.keyPair();
     dappKeyPair.current = kp;
     
@@ -181,11 +204,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const pubB58 = await bs58Encode(Array.from(kp.publicKey));
       const secB58 = await bs58Encode(Array.from(kp.secretKey));
-      await AsyncStorage.setItem(KEYPAIR_PUBLIC_KEY, pubB58);
-      await AsyncStorage.setItem(KEYPAIR_SECRET_KEY, secB58);
-      console.log('[Wallet] New keypair generated and stored');
+      
+      if (Platform.OS === 'web') {
+        webStorageSet(KEYPAIR_PUBLIC_KEY, pubB58);
+        webStorageSet(KEYPAIR_SECRET_KEY, secB58);
+        console.log('[Wallet] New keypair stored in localStorage, pubKey:', pubB58.substring(0, 8) + '...');
+      } else {
+        await AsyncStorage.setItem(KEYPAIR_PUBLIC_KEY, pubB58);
+        await AsyncStorage.setItem(KEYPAIR_SECRET_KEY, secB58);
+        console.log('[Wallet] New keypair stored in AsyncStorage');
+      }
     } catch (e) {
-      console.warn('[Wallet] Failed to persist keypair:', e);
+      console.error('[Wallet] Failed to persist keypair:', e);
     }
     
     return dappKeyPair.current;
