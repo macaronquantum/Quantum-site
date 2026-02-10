@@ -102,10 +102,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
 
-  // Keypair generated lazily to avoid "no PRNG" error
+  // Keypair generated lazily to ensure PRNG polyfill is loaded
   const dappKeyPair = useRef<{ publicKey: Uint8Array; secretKey: Uint8Array } | null>(null);
 
-  const getOrCreateKeyPair = useCallback(() => {
+  const getOrCreateKeyPair = useCallback(async () => {
+    await ensureCrypto();
     if (!dappKeyPair.current) {
       dappKeyPair.current = nacl.box.keyPair();
     }
