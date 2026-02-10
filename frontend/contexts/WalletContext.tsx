@@ -22,17 +22,34 @@ import {
 } from '../utils/solanaRpc';
 
 // Lazy-load tweetnacl and bs58 to ensure PRNG polyfill is ready
-let nacl: typeof import('tweetnacl');
-let bs58: typeof import('bs58');
+let nacl: any = null;
+let bs58Module: { encode: (buffer: Uint8Array | number[]) => string; decode: (str: string) => Uint8Array } | null = null;
 
 async function ensureCrypto() {
   if (!nacl) {
-    nacl = (await import('tweetnacl')).default || await import('tweetnacl');
+    const naclMod = await import('tweetnacl');
+    nacl = naclMod.default || naclMod;
+    console.log('[Crypto] tweetnacl loaded');
   }
-  if (!bs58) {
+  if (!bs58Module) {
     const mod = await import('bs58');
-    bs58 = mod.default || mod;
+    // Handle both ESM default export and CommonJS module
+    bs58Module = mod.default || mod;
+    console.log('[Crypto] bs58 loaded, encode exists:', typeof bs58Module?.encode);
   }
+}
+
+// Helper functions that ensure crypto is loaded before use
+async function bs58Encode(buffer: Uint8Array | number[]): Promise<string> {
+  await ensureCrypto();
+  if (!bs58Module) throw new Error('bs58 not loaded');
+  return bs58Module.encode(buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer));
+}
+
+async function bs58Decode(str: string): Promise<Uint8Array> {
+  await ensureCrypto();
+  if (!bs58Module) throw new Error('bs58 not loaded');
+  return new Uint8Array(bs58Module.decode(str));
 }
 
 // Ensure auth session completes properly
