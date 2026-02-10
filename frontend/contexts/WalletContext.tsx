@@ -373,13 +373,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
 
         const connectUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
-        console.log('Redirecting to Phantom:', connectUrl);
+        console.log('Opening Phantom connect:', connectUrl);
 
-        // Redirect — Phantom will send the user back to our URL with params
         if (typeof window !== 'undefined') {
-          window.location.href = connectUrl;
+          // Try navigating the top frame (works outside iframes)
+          try {
+            if (window.top && window.top !== window) {
+              // We're in an iframe — open new tab
+              window.open(connectUrl, '_blank');
+            } else {
+              // Direct page — redirect
+              window.location.href = connectUrl;
+              return; // Page will unload
+            }
+          } catch {
+            // Cross-origin iframe — open new tab
+            window.open(connectUrl, '_blank');
+          }
         }
-        return; // Page will unload
+
+        setError('PHANTOM_OPENED');
+        setConnecting(false);
+        return;
       }
 
       // ── MOBILE (Expo Go): Phantom deep-link ──
