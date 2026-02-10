@@ -259,7 +259,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Web without extension: redirect to Phantom
+        // Web without extension: open Phantom in popup, poll for redirect
         const currentUrl = window.location.origin + window.location.pathname;
         const dappPubKeyB58 = bs58.encode(Buffer.from(getOrCreateKeyPair().publicKey));
 
@@ -271,21 +271,80 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         });
 
         const connectUrl = `https://phantom.app/ul/v1/connect?${connectParams.toString()}`;
+        console.log('[Wallet] Opening Phantom popup...');
 
-        try {
-          if (window.top && window.top !== window) {
-            window.open(connectUrl, '_blank');
-          } else {
-            window.location.href = connectUrl;
-            return;
-          }
-        } catch {
-          window.open(connectUrl, '_blank');
+        // Open popup window
+        const popup = window.open(
+          connectUrl,
+          'phantom-connect',
+          'width=420,height=700,top=100,left=100'
+        );
+
+        if (!popup) {
+          setError('Popup blocked. Please allow popups for this site.');
+          setConnecting(false);
+          return;
         }
 
-        setError('PHANTOM_OPENED');
-        setConnecting(false);
-        return;
+        // Poll the popup URL — when Phantom redirects back to our origin, we can read it
+        const pollInterval = setInterval(() => {
+          try {
+            if (!popup || popup.closed) {
+              clearInterval(pollInterval);
+              setConnecting(false);
+              return;
+            }
+
+            // Try to read the popup URL (only works when same origin)
+            const popupUrl = popup.location.href;
+
+            // If the popup redirected back to our origin with Phantom params
+            if (
+              popupUrl &&
+              popupUrl.startsWith(currentUrl) &&
+              popupUrl.includes('phantom_encryption_public_key')
+            ) {
+              clearInterval(pollInterval);
+              popup.close();
+              console.log('[Wallet] Got Phantom callback from popup');
+
+              // Decrypt the response
+              try {
+                const walletAddress = decryptPhantomResponse(popupUrl);
+                if (walletAddress) {
+                  setConnected(true);
+                  setAddress(walletAddress);
+                  AsyncStorage.setItem(WALLET_KEY, walletAddress);
+                  console.log('[Wallet] Connected via popup:', walletAddress);
+                }
+              } catch (decryptErr: any) {
+                setError(decryptErr?.message || 'Decryption failed.');
+              }
+              setConnecting(false);
+            }
+
+            // Check for error redirect
+            if (popupUrl && popupUrl.startsWith(currentUrl) && popupUrl.includes('errorCode')) {
+              clearInterval(pollInterval);
+              popup.close();
+              const parsedPopup = new URL(popupUrl);
+              setError(parsedPopup.searchParams.get('errorMessage') || 'Connection rejected.');
+              setConnecting(false);
+            }
+          } catch {
+            // Cross-origin — popup is still on phantom.app, keep polling
+          }
+        }, 500);
+
+        // Safety timeout: stop polling after 2 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (connecting) {
+            setConnecting(false);
+          }
+        }, 120000);
+
+        return; // Keep connecting=true until popup returns
       }
 
       // ── MOBILE: use expo-web-browser (keeps app alive!) ──
