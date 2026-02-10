@@ -321,14 +321,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "All core features implemented and visually verified via screenshots"
-    - "Backend API endpoints tested and verified"
+    - "Pre-sale purchase endpoint"
+    - "Pre-sale config endpoint"
+    - "Referral data endpoint"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
-    message: "Quantum IA MVP completed. All screens implemented with premium UI. Wallet connection (demo), portfolio view, 5 AI investment opportunities, voting system, and profile all working. Ready for backend testing if needed."
-  - agent: "testing"
-    message: "Backend testing completed successfully. All FastAPI endpoints working: GET /api/ (root), GET /api/status, POST /api/status. MongoDB integration verified. Server running on port 8001 via supervisor. External URL access confirmed. No critical issues found."
+    message: "Major rewrite complete: Fixed SHADOWS crash, fixed all missing colors in theme.ts, rewrote landing page for responsiveness (button always visible), implemented real Phantom wallet integration, added form validation to pre-sale, added functional settings to profile, redesigned tab bar to Delta style. Backend endpoints: GET /api/config, POST /api/presale/purchase, GET /api/referral/{address} need testing."
