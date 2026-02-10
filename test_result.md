@@ -189,11 +189,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "GET /api/config returns token price and other config. Verified working via frontend calls."
+      - working: true
+        agent: "testing"
+        comment: "GET /api/config tested successfully: returns tokenPrice ($2.5), minPurchase (100), solanaAddress, commissionRate (10%). All fields present and correct data types."
 
   - task: "Referral data endpoint"
     implemented: true
