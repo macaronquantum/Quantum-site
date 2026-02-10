@@ -1,19 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
-import { useRouter, Link } from 'expo-router';
+import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function Index() {
-  const router = useRouter();
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
       
       <View style={styles.content}>
-        {/* Header */}
+        {/* Logo & Branding */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Image 
@@ -23,39 +22,33 @@ export default function Index() {
             />
           </View>
           <Text style={styles.title}>QUANTUM</Text>
-          <Text style={styles.subtitle}>Institutional DAO Governance Platform</Text>
+          <Text style={styles.subtitle}>Institutional DAO Governance</Text>
         </View>
 
-        {/* Value Props */}
+        {/* Features */}
         <View style={styles.features}>
-          <View style={styles.feature}>
-            <View style={styles.featureIconContainer}>
-              <Ionicons name="shield-checkmark-outline" size={20} color={COLORS.primary} />
+          <View style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
             </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Institutional Grade</Text>
-              <Text style={styles.featureDescription}>Bank-level security and governance</Text>
-            </View>
+            <Text style={styles.featureTitle}>Institutional Grade</Text>
+            <Text style={styles.featureDesc}>Bank-level security</Text>
           </View>
 
-          <View style={styles.feature}>
-            <View style={styles.featureIconContainer}>
-              <Ionicons name="trending-up-outline" size={20} color={COLORS.primary} />
+          <View style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="trending-up" size={20} color={COLORS.success} />
             </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>AI Investment DAO</Text>
-              <Text style={styles.featureDescription}>Vote on curated AI opportunities</Text>
-            </View>
+            <Text style={styles.featureTitle}>AI Investment DAO</Text>
+            <Text style={styles.featureDesc}>Curated opportunities</Text>
           </View>
 
-          <View style={styles.feature}>
-            <View style={styles.featureIconContainer}>
-              <Ionicons name="wallet-outline" size={20} color={COLORS.primary} />
+          <View style={styles.featureCard}>
+            <View style={styles.featureIcon}>
+              <Ionicons name="wallet" size={20} color={COLORS.warning} />
             </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Token-Based Power</Text>
-              <Text style={styles.featureDescription}>Voting weight proportional to holdings</Text>
-            </View>
+            <Text style={styles.featureTitle}>Token-Based Power</Text>
+            <Text style={styles.featureDesc}>Proportional voting</Text>
           </View>
         </View>
 
@@ -63,12 +56,20 @@ export default function Index() {
         <View style={styles.ctaSection}>
           <Link href="/(tabs)/portfolio" asChild>
             <Pressable style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Access Platform</Text>
-              <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
+              {({ pressed }) => (
+                <LinearGradient
+                  colors={[COLORS.primary, COLORS.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.buttonGradient, pressed && styles.buttonPressed]}
+                >
+                  <Text style={styles.buttonText}>Access Platform</Text>
+                  <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
+                </LinearGradient>
+              )}
             </Pressable>
           </Link>
-
-          <Text style={styles.disclaimer}>Built on Solana • Testnet Version</Text>
+          <Text style={styles.disclaimer}>Built on Solana • Production Ready</Text>
         </View>
       </View>
     </View>
@@ -82,7 +83,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.xl,
     paddingTop: 80,
     paddingBottom: 50,
     justifyContent: 'space-between',
@@ -99,46 +100,41 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: FONT_SIZES.xxxl,
-    fontWeight: FONT_WEIGHTS.bold,
+    fontWeight: FONT_WEIGHTS.heavy,
     color: COLORS.textPrimary,
     letterSpacing: 4,
     marginBottom: SPACING.sm,
   },
   subtitle: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.base,
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
   features: {
-    gap: SPACING.md,
+    gap: SPACING.base,
   },
-  feature: {
-    flexDirection: 'row',
+  featureCard: {
     backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
+    ...SHADOWS.subtle,
   },
-  featureIconContainer: {
+  featureIcon: {
     width: 40,
     height: 40,
-    borderRadius: BORDER_RADIUS.sm,
+    borderRadius: BORDER_RADIUS.md,
     backgroundColor: COLORS.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  featureContent: {
-    flex: 1,
+    marginBottom: SPACING.md,
   },
   featureTitle: {
     fontSize: FONT_SIZES.md,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
-    marginBottom: 4,
+    marginBottom: SPACING.xs,
   },
-  featureDescription: {
+  featureDesc: {
     fontSize: FONT_SIZES.sm,
     color: COLORS.textSecondary,
   },
@@ -146,15 +142,21 @@ const styles = StyleSheet.create({
     gap: SPACING.lg,
   },
   primaryButton: {
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    ...SHADOWS.medium,
+  },
+  buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
+    paddingVertical: SPACING.lg,
   },
-  primaryButtonText: {
+  buttonPressed: {
+    opacity: 0.9,
+  },
+  buttonText: {
     fontSize: FONT_SIZES.md,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,

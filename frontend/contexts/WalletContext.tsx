@@ -12,7 +12,6 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-// Simple wallet address generator for demo
 function generateWalletAddress(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz123456789';
   let address = '';
@@ -34,28 +33,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const loadWalletData = async () => {
     try {
       const storedAddress = await AsyncStorage.getItem('walletAddress');
-      
       if (storedAddress) {
         setConnected(true);
         setAddress(storedAddress);
         setPublicKey({ toBase58: () => storedAddress });
       }
     } catch (error) {
-      console.error('Error loading wallet data:', error);
+      console.error('Error loading wallet:', error);
     }
   };
 
   const connectWallet = async () => {
     try {
-      // Generate a demo Solana-style wallet address
       const walletAddress = generateWalletAddress();
-
       setConnected(true);
       setAddress(walletAddress);
       setPublicKey({ toBase58: () => walletAddress });
-
-      // Save to AsyncStorage
       await AsyncStorage.setItem('walletAddress', walletAddress);
+      console.log('Wallet connected:', walletAddress);
     } catch (error) {
       console.error('Error connecting wallet:', error);
     }
@@ -66,23 +61,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setConnected(false);
       setAddress(null);
       setPublicKey(null);
-
       await AsyncStorage.removeItem('walletAddress');
+      console.log('Wallet disconnected');
     } catch (error) {
       console.error('Error disconnecting wallet:', error);
     }
   };
 
   return (
-    <WalletContext.Provider
-      value={{
-        connected,
-        address,
-        connectWallet,
-        disconnectWallet,
-        publicKey,
-      }}
-    >
+    <WalletContext.Provider value={{ connected, address, connectWallet, disconnectWallet, publicKey }}>
       {children}
     </WalletContext.Provider>
   );
@@ -90,8 +77,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
 export function useWallet() {
   const context = useContext(WalletContext);
-  if (context === undefined) {
-    throw new Error('useWallet must be used within a WalletProvider');
+  if (!context) {
+    throw new Error('useWallet must be used within WalletProvider');
   }
   return context;
 }
