@@ -1,8 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Platform } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { COLORS } from '../../constants/theme';
+import { StyleSheet } from 'react-native';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS } from '../../constants/theme';
 
 export default function TabLayout() {
   return (
@@ -13,19 +12,15 @@ export default function TabLayout() {
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: styles.tabBarLabel,
-        tabBarBackground: () => (
-          Platform.OS === 'ios' ? (
-            <BlurView intensity={100} style={StyleSheet.absoluteFill} tint="dark" />
-          ) : null
-        ),
+        tabBarItemStyle: styles.tabBarItem,
       }}
     >
       <Tabs.Screen
         name="portfolio"
         options={{
           title: 'Portfolio',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={20} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="wallet" size={22} color={color} />
           ),
         }}
       />
@@ -33,8 +28,8 @@ export default function TabLayout() {
         name="opportunities"
         options={{
           title: 'Invest',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="trending-up-outline" size={20} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="trending-up" size={22} color={color} />
           ),
         }}
       />
@@ -42,8 +37,8 @@ export default function TabLayout() {
         name="presale"
         options={{
           title: 'Pre-Sale',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="card-outline" size={20} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="card" size={22} color={color} />
           ),
         }}
       />
@@ -51,8 +46,8 @@ export default function TabLayout() {
         name="affiliation"
         options={{
           title: 'Referral',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="share-social-outline" size={20} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="share-social" size={22} color={color} />
           ),
         }}
       />
@@ -60,8 +55,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Account',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={20} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="person" size={22} color={color} />
           ),
         }}
       />
@@ -72,15 +67,19 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    backgroundColor: Platform.OS === 'ios' ? 'transparent' : COLORS.surface,
+    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    height: 60,
+    height: 65,
     paddingBottom: 8,
     paddingTop: 8,
   },
   tabBarLabel: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: FONT_WEIGHTS.medium,
+    marginTop: -4,
+  },
+  tabBarItem: {
+    paddingVertical: 4,
   },
 });
