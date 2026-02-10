@@ -230,9 +230,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // Decode bs58 values
-      const phantomPubKey = new Uint8Array(bs58.decode(phantomPubKeyStr));
-      const nonce = new Uint8Array(bs58.decode(nonceStr));
-      const encryptedData = new Uint8Array(bs58.decode(dataStr));
+      const phantomPubKey = await bs58Decode(phantomPubKeyStr);
+      const nonce = await bs58Decode(nonceStr);
+      const encryptedData = await bs58Decode(dataStr);
 
       console.log('[Wallet] Decrypting with keypair...');
 
@@ -292,7 +292,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         // CRITICAL: await the keypair and ensure crypto is loaded
         const webKp = await getOrCreateKeyPair();
-        const dappPubKeyB58 = bs58.encode(Buffer.from(webKp.publicKey));
+        const dappPubKeyB58 = await bs58Encode(Array.from(webKp.publicKey));
 
         const connectParams = new URLSearchParams({
           dapp_encryption_public_key: dappPubKeyB58,
@@ -383,7 +383,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // ── MOBILE: use expo-web-browser (keeps app alive!) ──
       // CRITICAL: await the keypair and ensure crypto is loaded
       const mobileKp = await getOrCreateKeyPair();
-      const dappPubKeyB58 = bs58.encode(Buffer.from(mobileKp.publicKey));
+      const dappPubKeyB58 = await bs58Encode(Array.from(mobileKp.publicKey));
       const redirectUri = Linking.createURL('onConnect');
 
       console.log('[Wallet] Redirect URI:', redirectUri);
