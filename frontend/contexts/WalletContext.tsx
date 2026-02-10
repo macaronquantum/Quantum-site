@@ -34,6 +34,7 @@ export interface WalletState {
   eurValue: number;
   eurRate: number;
   loadingBalances: boolean;
+  votingPower: number;
   // Actions
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
@@ -50,6 +51,7 @@ const WalletContext = createContext<WalletState>({
   eurValue: 0,
   eurRate: 0.92,
   loadingBalances: false,
+  votingPower: 0,
   connectWallet: async () => {},
   disconnectWallet: async () => {},
   refreshBalances: async () => {},
