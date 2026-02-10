@@ -76,7 +76,7 @@ export default function PreSale() {
     try {
       const hostUrl = typeof window !== 'undefined' 
         ? window.location.origin 
-        : 'https://quantum-ia-vote.preview.emergentagent.com';
+        : 'https://governance-fintech.preview.emergentagent.com';
 
       const purchaseData = {
         firstName: formData.firstName,

@@ -27,10 +27,10 @@ def get_backend_url():
                     backend_url = line.strip().split('=')[1]
                     return f"{backend_url}/api"
         # Fallback if not found in .env
-        return "https://quantum-ia-vote.preview.emergentagent.com/api"
+        return "https://governance-fintech.preview.emergentagent.com/api"
     except Exception as e:
         print(f"Warning: Could not read frontend .env file: {e}")
-        return "https://quantum-ia-vote.preview.emergentagent.com/api"
+        return "https://governance-fintech.preview.emergentagent.com/api"
 
 class QuantumIABackendTester:
     def __init__(self):
