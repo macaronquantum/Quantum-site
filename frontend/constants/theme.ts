@@ -1,11 +1,11 @@
-// Delta-inspired Premium Design System
+// Delta-inspired Premium Design System - Market Ready
 
 export const COLORS = {
   // Premium Dark Backgrounds
-  background: '#0D0D0D',          // Deep near-black
-  surface: '#1A1A1A',             // Dark gray for cards
-  surfaceElevated: '#242424',     // Elevated surface
-  surfaceHover: '#2A2A2A',        // Hover state
+  background: '#0D0D0D',
+  surface: '#1A1A1A',
+  surfaceElevated: '#242424',
+  surfaceHover: '#2A2A2A',
   
   // Borders & Dividers
   border: 'rgba(255, 255, 255, 0.08)',
@@ -19,11 +19,11 @@ export const COLORS = {
   textDisabled: '#4A4A4A',
   
   // Accent Colors - Delta Style
-  primary: '#8B5CF6',             // Vibrant Purple/Magenta
+  primary: '#8B5CF6',
   primaryDark: '#7C3AED',
   primaryLight: '#A78BFA',
   
-  success: '#10B981',             // Bright green
+  success: '#10B981',
   successDark: '#059669',
   
   error: '#EF4444',
@@ -32,11 +32,9 @@ export const COLORS = {
   warning: '#F59E0B',
   warningDark: '#D97706',
   
-  // Premium accents
   gold: '#F59E0B',
   platinum: '#E5E7EB',
   
-  // Chart colors
   chartPositive: '#10B981',
   chartNegative: '#EF4444',
   chartNeutral: '#6B7280',
@@ -84,70 +82,22 @@ export const BORDER_RADIUS = {
   full: 9999,
 };
 
-// Delta-style Shadows
-export const SHADOWS = {
-  none: {
-    shadowColor: 'transparent',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0,
-    shadowRadius: 0,
-    elevation: 0,
+// No deprecated shadow* props - using modern boxShadow
+export const BOX_SHADOW = {
+  none: {},
+  sm: {
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.15)',
   },
-  subtle: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+  md: {
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.2)',
   },
-  medium: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  strong: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
+  lg: {
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.25)',
   },
 };
 
-// Animation timing
 export const ANIMATION = {
   fast: 150,
   normal: 300,
   slow: 500,
-};
-
-// Common Styles
-export const COMMON_STYLES = {
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.base,
-    ...SHADOWS.subtle,
-  },
-  cardElevated: {
-    backgroundColor: COLORS.surfaceElevated,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.base,
-    ...SHADOWS.medium,
-  },
-  button: {
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  buttonPrimary: {
-    backgroundColor: COLORS.primary,
-  },
-  buttonSuccess: {
-    backgroundColor: COLORS.success,
-  },
 };
