@@ -8,6 +8,8 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
@@ -23,6 +25,7 @@ export default function Portfolio() {
     address,
     connecting,
     connectWallet,
+    disconnectWallet,
     quantumBalance,
     solBalance,
     usdValue,
@@ -30,6 +33,8 @@ export default function Portfolio() {
     eurRate,
     loadingBalances,
     refreshBalances,
+    error,
+    clearError,
   } = useWallet();
 
   const [refreshing, setRefreshing] = React.useState(false);
@@ -49,43 +54,91 @@ export default function Portfolio() {
       maximumFractionDigits: decimals,
     });
 
+  const openPhantom = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open('https://phantom.app/', '_blank');
+    } else {
+      Linking.openURL('https://phantom.app/');
+    }
+  };
+
   // ─── Not connected ──────────────────────────────────────────
   if (!connected) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar style="light" />
-        <View style={styles.disconnectedContainer}>
-          <View style={styles.walletIconContainer}>
-            <Ionicons name="wallet-outline" size={48} color={COLORS.textTertiary} />
-          </View>
-          <Text style={styles.disconnectedTitle}>Connect Wallet</Text>
-          <Text style={styles.disconnectedSubtitle}>
-            Connect your Solana wallet to view your real Quantum token balance
-          </Text>
-          <TouchableOpacity
-            style={styles.connectButton}
-            onPress={connectWallet}
-            disabled={connecting}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={[COLORS.primary, COLORS.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.connectGradient}
+        <ScrollView
+          contentContainerStyle={styles.disconnectedScroll}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.disconnectedInner}>
+            <View style={styles.walletIconContainer}>
+              <Ionicons name="wallet-outline" size={48} color={COLORS.textTertiary} />
+            </View>
+            <Text style={styles.disconnectedTitle}>Connect Wallet</Text>
+            <Text style={styles.disconnectedSubtitle}>
+              Connect your Solana wallet to view your real Quantum token balance on mainnet
+            </Text>
+
+            {/* Main connect button */}
+            <TouchableOpacity
+              style={[styles.connectButton, connecting && styles.connectButtonDisabled]}
+              onPress={() => { clearError(); connectWallet(); }}
+              disabled={connecting}
+              activeOpacity={0.7}
             >
-              {connecting ? (
-                <ActivityIndicator color={COLORS.textPrimary} size="small" />
-              ) : (
-                <>
-                  <Ionicons name="wallet" size={20} color="#fff" />
-                  <Text style={styles.connectButtonText}>Connect Phantom</Text>
-                </>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-          <Text style={styles.hint}>Requires a Solana wallet (Phantom recommended)</Text>
-        </View>
+              <LinearGradient
+                colors={connecting ? ['#555', '#444'] : [COLORS.primary, COLORS.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.connectGradient}
+              >
+                {connecting ? (
+                  <>
+                    <ActivityIndicator color="#fff" size="small" />
+                    <Text style={styles.connectButtonText}>Connecting...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="wallet" size={20} color="#fff" />
+                    <Text style={styles.connectButtonText}>Connect Phantom</Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Error feedback — inline, always visible */}
+            {error === 'NO_WALLET' && (
+              <View style={styles.errorCard}>
+                <Ionicons name="warning" size={20} color={COLORS.warning} />
+                <View style={styles.errorContent}>
+                  <Text style={styles.errorTitle}>No Solana Wallet Detected</Text>
+                  <Text style={styles.errorText}>
+                    Install Phantom or another Solana wallet extension to connect.
+                  </Text>
+                  <TouchableOpacity style={styles.installButton} onPress={openPhantom} activeOpacity={0.7}>
+                    <Ionicons name="download-outline" size={16} color={COLORS.primary} />
+                    <Text style={styles.installButtonText}>Install Phantom</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {error && error !== 'NO_WALLET' && (
+              <View style={styles.errorCard}>
+                <Ionicons name="close-circle" size={20} color={COLORS.error} />
+                <View style={styles.errorContent}>
+                  <Text style={styles.errorTitle}>Connection Error</Text>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              </View>
+            )}
+
+            {!error && !connecting && (
+              <Text style={styles.hint}>Requires Phantom browser extension or mobile app</Text>
+            )}
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -101,11 +154,7 @@ export default function Portfolio() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
       >
         {/* Header */}
@@ -126,7 +175,7 @@ export default function Portfolio() {
               <Text style={styles.valueLabel}>Total Quantum Value</Text>
               <Text style={styles.valueUsd}>${formatNumber(usdValue)}</Text>
               <Text style={styles.valueEur}>
-                \u2248 \u20ac{formatNumber(eurValue)} EUR
+                {'\u2248'} {'\u20ac'}{formatNumber(eurValue)} EUR
                 <Text style={styles.rateHint}>{' '}(1 USD = {eurRate.toFixed(4)} EUR)</Text>
               </Text>
               <View style={styles.priceBadge}>
@@ -139,15 +188,10 @@ export default function Portfolio() {
         {/* Quantum Token */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Holdings</Text>
-
           <View style={styles.tokenCard}>
             <View style={styles.tokenRow}>
               <View style={styles.tokenLogoWrap}>
-                <Image
-                  source={require('../../assets/images/quantum-logo.png')}
-                  style={styles.tokenLogo}
-                  resizeMode="cover"
-                />
+                <Image source={require('../../assets/images/quantum-logo.png')} style={styles.tokenLogo} resizeMode="cover" />
               </View>
               <View style={styles.tokenInfo}>
                 <Text style={styles.tokenName}>Quantum</Text>
@@ -159,13 +203,9 @@ export default function Portfolio() {
                 ) : (
                   <>
                     <Text style={styles.tokenAmount}>
-                      {hasTokens
-                        ? formatNumber(quantumBalance!.amount, quantumBalance!.decimals > 4 ? 4 : quantumBalance!.decimals)
-                        : '0'}
+                      {hasTokens ? formatNumber(quantumBalance!.amount, Math.min(quantumBalance!.decimals, 4)) : '0'}
                     </Text>
-                    <Text style={styles.tokenUsd}>
-                      ${formatNumber(usdValue)}
-                    </Text>
+                    <Text style={styles.tokenUsd}>${formatNumber(usdValue)}</Text>
                   </>
                 )}
               </View>
@@ -186,7 +226,7 @@ export default function Portfolio() {
           <View style={styles.tokenCard}>
             <View style={styles.tokenRow}>
               <View style={[styles.tokenLogoWrap, { backgroundColor: '#1a1a2e' }]}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: '#14F195' }}>\u25ce</Text>
+                <Text style={{ fontSize: 18, fontWeight: '700', color: '#14F195' }}>{'\u25ce'}</Text>
               </View>
               <View style={styles.tokenInfo}>
                 <Text style={styles.tokenName}>Solana</Text>
@@ -203,13 +243,13 @@ export default function Portfolio() {
           </View>
         </View>
 
-        {/* Blockchain Info */}
+        {/* On-Chain Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>On-Chain</Text>
           <View style={styles.infoCard}>
             <InfoRow label="Network" value="Solana Mainnet" />
             <View style={styles.infoDivider} />
-            <InfoRow label="Token Mint" value={`4KsZ\u2026ixtLc`} />
+            <InfoRow label="Token Mint" value="4KsZ\u2026ixtLc" />
             <View style={styles.infoDivider} />
             <InfoRow label="Price Source" value="Fixed $2.50 (Pre-TGE)" />
           </View>
@@ -233,18 +273,36 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   // Disconnected
-  disconnectedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xxl },
+  disconnectedScroll: { flexGrow: 1 },
+  disconnectedInner: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xl },
   walletIconContainer: {
     width: 88, height: 88, borderRadius: 22,
     backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
     alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl,
   },
   disconnectedTitle: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  disconnectedSubtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xxl },
-  connectButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', width: '100%', maxWidth: 280 },
+  disconnectedSubtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.xl },
+  connectButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', width: '100%', maxWidth: 300 },
+  connectButtonDisabled: { opacity: 0.7 },
   connectGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, paddingVertical: 16 },
   connectButtonText: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: '#fff' },
-  hint: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, marginTop: SPACING.md },
+  hint: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, marginTop: SPACING.md, textAlign: 'center' },
+  // Error card — inline
+  errorCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.warning + '40',
+    borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, marginTop: SPACING.lg, width: '100%', maxWidth: 340,
+  },
+  errorContent: { flex: 1 },
+  errorTitle: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: 4 },
+  errorText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, lineHeight: 18, marginBottom: SPACING.sm },
+  installButton: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs,
+    backgroundColor: COLORS.surfaceElevated, borderWidth: 1, borderColor: COLORS.primary + '40',
+    borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    alignSelf: 'flex-start',
+  },
+  installButtonText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.primary },
   // Connected
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg },
@@ -253,7 +311,6 @@ const styles = StyleSheet.create({
   walletChip: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success },
   walletChipText: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, fontFamily: 'monospace' },
-  // Value card
   valueCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border },
   valueLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: SPACING.xs },
   valueUsd: { fontSize: 34, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.textPrimary, marginBottom: 2 },
@@ -265,10 +322,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm, paddingHorizontal: SPACING.sm, paddingVertical: 4,
   },
   priceBadgeText: { fontSize: FONT_SIZES.xs, color: COLORS.primary, fontWeight: FONT_WEIGHTS.semibold },
-  // Sections
   section: { marginBottom: SPACING.lg },
   sectionTitle: { fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: SPACING.md },
-  // Token card
   tokenCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, borderWidth: 1, borderColor: COLORS.border, marginBottom: SPACING.sm },
   tokenRow: { flexDirection: 'row', alignItems: 'center' },
   tokenLogoWrap: { width: 38, height: 38, borderRadius: 10, overflow: 'hidden', marginRight: SPACING.md, backgroundColor: COLORS.surfaceElevated, alignItems: 'center', justifyContent: 'center' },
@@ -279,14 +334,12 @@ const styles = StyleSheet.create({
   tokenValues: { alignItems: 'flex-end' },
   tokenAmount: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: 2 },
   tokenUsd: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary },
-  // No tokens
   noTokenBanner: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
     backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.warning + '30',
     borderRadius: BORDER_RADIUS.md, padding: SPACING.md,
   },
   noTokenText: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.warning, lineHeight: 18 },
-  // Info card
   infoCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.base, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.md },
   infoLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
