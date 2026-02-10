@@ -15,10 +15,11 @@ export default function Index() {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        {/* Logo & Branding */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
+        {/* Logo - Arrondi */}
+        <View style={styles.logoSection}>
+          <View style={styles.logoWrapper}>
             <Image 
               source={require('../assets/images/quantum-logo.png')}
               style={styles.logoImage}
@@ -29,52 +30,49 @@ export default function Index() {
           <Text style={styles.subtitle}>Institutional DAO Governance</Text>
         </View>
 
-        {/* Features */}
+        {/* Features compactes */}
         <View style={styles.features}>
           <View style={styles.featureCard}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="shield-checkmark" size={20} color={COLORS.primary} />
+            <Ionicons name="shield-checkmark" size={18} color={COLORS.primary} />
+            <View style={styles.featureText}>
+              <Text style={styles.featureTitle}>Institutional Grade</Text>
+              <Text style={styles.featureDesc}>Bank-level security</Text>
             </View>
-            <Text style={styles.featureTitle}>Institutional Grade</Text>
-            <Text style={styles.featureDesc}>Bank-level security</Text>
           </View>
 
           <View style={styles.featureCard}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="trending-up" size={20} color={COLORS.success} />
+            <Ionicons name="trending-up" size={18} color={COLORS.success} />
+            <View style={styles.featureText}>
+              <Text style={styles.featureTitle}>AI Investment DAO</Text>
+              <Text style={styles.featureDesc}>Curated opportunities</Text>
             </View>
-            <Text style={styles.featureTitle}>AI Investment DAO</Text>
-            <Text style={styles.featureDesc}>Curated opportunities</Text>
           </View>
 
           <View style={styles.featureCard}>
-            <View style={styles.featureIcon}>
-              <Ionicons name="wallet" size={20} color={COLORS.warning} />
+            <Ionicons name="wallet" size={18} color={COLORS.warning} />
+            <View style={styles.featureText}>
+              <Text style={styles.featureTitle}>Token-Based Power</Text>
+              <Text style={styles.featureDesc}>Proportional voting</Text>
             </View>
-            <Text style={styles.featureTitle}>Token-Based Power</Text>
-            <Text style={styles.featureDesc}>Proportional voting</Text>
           </View>
         </View>
 
         {/* CTA */}
-        <View style={styles.ctaSection}>
-          <Link href="/(tabs)/portfolio" asChild>
-            <Pressable style={styles.primaryButton}>
-              {({ pressed }) => (
-                <LinearGradient
-                  colors={[COLORS.primary, COLORS.primaryDark]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.buttonGradient, pressed && styles.buttonPressed]}
-                >
-                  <Text style={styles.buttonText}>Access Platform</Text>
-                  <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
-                </LinearGradient>
-              )}
-            </Pressable>
-          </Link>
-          <Text style={styles.disclaimer}>Built on Solana • Production Ready</Text>
-        </View>
+        <Link href="/(tabs)/portfolio" asChild>
+          <Pressable style={styles.primaryButton}>
+            <LinearGradient
+              colors={[COLORS.primary, COLORS.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>Access Platform</Text>
+              <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
+            </LinearGradient>
+          </Pressable>
+        </Link>
+        
+        <Text style={styles.disclaimer}>Built on Solana \u2022 Production Ready</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -90,93 +88,84 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.xl,
-    gap: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    gap: SPACING.lg,
   },
-  header: {
+  logoSection: {
     alignItems: 'center',
+    marginBottom: SPACING.md,
   },
-  logoContainer: {
-    marginBottom: SPACING.xl,
+  logoWrapper: {
     borderRadius: BORDER_RADIUS.xxl,
     overflow: 'hidden',
     backgroundColor: COLORS.surface,
-    padding: SPACING.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
   },
   logoImage: {
-    width: 80,
-    height: 80,
+    width: 64,
+    height: 64,
     borderRadius: BORDER_RADIUS.lg,
   },
   title: {
-    fontSize: FONT_SIZES.xxxl,
+    fontSize: 32,
     fontWeight: FONT_WEIGHTS.heavy,
     color: COLORS.textPrimary,
-    letterSpacing: 4,
-    marginBottom: SPACING.sm,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.base,
-    fontWeight: FONT_WEIGHTS.normal,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  features: {
-    gap: SPACING.base,
-  },
-  featureCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.lg,
-    padding: SPACING.lg,
-  },
-  featureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: BORDER_RADIUS.md,
-    backgroundColor: COLORS.surfaceElevated,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.md,
-  },
-  featureTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.textPrimary,
+    letterSpacing: 3,
     marginBottom: SPACING.xs,
   },
-  featureDesc: {
+  subtitle: {
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.normal,
     color: COLORS.textSecondary,
   },
-  ctaSection: {
-    gap: SPACING.lg,
-    paddingBottom: SPACING.xl,
+  features: {
+    gap: SPACING.sm,
+  },
+  featureCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  featureText: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  featureDesc: {
+    fontSize: FONT_SIZES.xs,
+    fontWeight: FONT_WEIGHTS.normal,
+    color: COLORS.textSecondary,
   },
   primaryButton: {
     borderRadius: BORDER_RADIUS.lg,
     overflow: 'hidden',
+    marginTop: SPACING.lg,
   },
   buttonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.sm,
-    paddingVertical: SPACING.lg,
-  },
-  buttonPressed: {
-    opacity: 0.9,
+    paddingVertical: SPACING.base,
   },
   buttonText: {
-    fontSize: FONT_SIZES.md,
+    fontSize: FONT_SIZES.base,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
   },
   disclaimer: {
-    fontSize: FONT_SIZES.sm,
+    fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.normal,
     color: COLORS.textTertiary,
     textAlign: 'center',
+    marginTop: SPACING.md,
   },
 });
