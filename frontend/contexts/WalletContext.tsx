@@ -1,10 +1,6 @@
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { ConnectionProvider, WalletProvider as SolanaWalletProvider, useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl } from '@solana/web3.js';
-
-// Use mainnet for production
-const network = clusterApiUrl('mainnet-beta');
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Keypair } from '@solana/web3.js';
 
 interface WalletContextType {
   connected: boolean;
@@ -16,31 +12,41 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export function WalletProviderWrapper({ children }: { children: ReactNode }) {
-  // Configure wallets
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
-    []
-  );
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const [connected, setConnected] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [publicKey, setPublicKey] = useState<any>(null);
 
-  return (
-    <ConnectionProvider endpoint={network}>
-      <SolanaWalletProvider wallets={wallets} autoConnect={false}>
-        <WalletProviderInner>{children}</WalletProviderInner>
-      </SolanaWalletProvider>
-    </ConnectionProvider>
-  );
-}
+  useEffect(() => {
+    loadWalletData();
+  }, []);
 
-function WalletProviderInner({ children }: { children: ReactNode }) {
-  const { publicKey, connected, connect, disconnect } = useSolanaWallet();
+  const loadWalletData = async () => {
+    try {
+      const storedAddress = await AsyncStorage.getItem('walletAddress');
+      
+      if (storedAddress) {
+        setConnected(true);
+        setAddress(storedAddress);
+        setPublicKey({ toBase58: () => storedAddress });
+      }
+    } catch (error) {
+      console.error('Error loading wallet data:', error);
+    }
+  };
 
   const connectWallet = async () => {
     try {
-      await connect();
+      // Generate a demo Solana wallet address
+      const keypair = Keypair.generate();
+      const walletAddress = keypair.publicKey.toString();
+
+      setConnected(true);
+      setAddress(walletAddress);
+      setPublicKey(keypair.publicKey);
+
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('walletAddress', walletAddress);
     } catch (error) {
       console.error('Error connecting wallet:', error);
     }
@@ -48,22 +54,26 @@ function WalletProviderInner({ children }: { children: ReactNode }) {
 
   const disconnectWallet = async () => {
     try {
-      await disconnect();
+      setConnected(false);
+      setAddress(null);
+      setPublicKey(null);
+
+      await AsyncStorage.removeItem('walletAddress');
     } catch (error) {
       console.error('Error disconnecting wallet:', error);
     }
   };
 
-  const contextValue: WalletContextType = {
-    connected,
-    address: publicKey?.toBase58() || null,
-    connectWallet,
-    disconnectWallet,
-    publicKey,
-  };
-
   return (
-    <WalletContext.Provider value={contextValue}>
+    <WalletContext.Provider
+      value={{
+        connected,
+        address,
+        connectWallet,
+        disconnectWallet,
+        publicKey,
+      }}
+    >
       {children}
     </WalletContext.Provider>
   );
@@ -76,6 +86,3 @@ export function useWallet() {
   }
   return context;
 }
-
-// For compatibility, export WalletProvider as alias
-export const WalletProvider = WalletProviderWrapper;
