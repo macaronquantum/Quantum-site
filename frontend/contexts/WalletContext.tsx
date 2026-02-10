@@ -217,15 +217,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const nonce = new Uint8Array(bs58.decode(nonceStr));
       const encryptedData = new Uint8Array(bs58.decode(dataStr));
 
-      // Get our secret key (still in memory — openAuthSessionAsync keeps the app alive)
-      const kp = getOrCreateKeyPair();
-      const secretKey = kp.secretKey;
+      console.log('[Wallet] Decrypting with keypair...');
 
-      console.log('[Wallet] Decrypting with keypair publicKey:', 
-        bs58.encode(Buffer.from(kp.publicKey)).substring(0, 8) + '...');
+      // Get our secret key
+      const kp = await getOrCreateKeyPair();
 
       // Derive shared secret using X25519
-      const sharedSecret = nacl.box.before(phantomPubKey, secretKey);
+      const sharedSecret = nacl.box.before(phantomPubKey, kp.secretKey);
 
       // Decrypt the response
       const decrypted = nacl.box.open.after(encryptedData, nonce, sharedSecret);
