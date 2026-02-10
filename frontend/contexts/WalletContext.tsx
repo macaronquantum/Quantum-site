@@ -348,7 +348,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // ── MOBILE: use expo-web-browser (keeps app alive!) ──
-      const dappPubKeyB58 = bs58.encode(Buffer.from(dappKeyPair.current.publicKey));
+      const mobileKp = getOrCreateKeyPair();
+      const dappPubKeyB58 = bs58.encode(Buffer.from(mobileKp.publicKey));
       const redirectUri = Linking.createURL('onConnect');
 
       console.log('[Wallet] Redirect URI:', redirectUri);
