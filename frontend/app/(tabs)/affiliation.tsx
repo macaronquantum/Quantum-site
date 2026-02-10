@@ -8,58 +8,58 @@ import {
   Share,
   Alert,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useWallet } from '../../contexts/WalletContext';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
 import { StatusBar } from 'expo-status-bar';
-import { useWallet } from '../../contexts/WalletContext';
+import axios from 'axios';
 
-const COMMISSION_PERCENTAGE = 10; // 10% commission
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+const COMMISSION_PERCENTAGE = 10;
 
 export default function Affiliation() {
-  const { address } = useWallet();
-  const [referralCode, setReferralCode] = useState('');
-  const [stats, setStats] = useState({
-    referrals: 0,
-    totalPurchased: 0,
-    commissionEarned: 0,
-    commissionPending: 0,
-    commissionPaid: 0,
-  });
+  const { address, connected } = useWallet();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any>(null);
 
   useEffect(() => {
-    loadReferralData();
-  }, [address]);
+    if (connected && address) {
+      fetchReferralData();
+    } else {
+      setLoading(false);
+    }
+  }, [address, connected]);
 
-  const loadReferralData = async () => {
+  const fetchReferralData = async () => {
+    if (!address) return;
+    
+    setLoading(true);
     try {
-      // Generate referral code from wallet address
-      if (address) {
-        const code = `QTM${address.slice(0, 6).toUpperCase()}`;
-        setReferralCode(code);
-      }
-
-      // Load stats from AsyncStorage (mock data for demo)
-      const savedStats = await AsyncStorage.getItem('referralStats');
-      if (savedStats) {
-        setStats(JSON.parse(savedStats));
-      }
+      const response = await axios.get(`${BACKEND_URL}/api/referral/${address}`);
+      setStats(response.data);
     } catch (error) {
-      console.error('Error loading referral data:', error);
+      console.error('Error fetching referral data:', error);
+      Alert.alert('Error', 'Failed to load referral data');
+    } finally {
+      setLoading(false);
     }
   };
 
   const copyReferralCode = () => {
-    // In a real app, use Clipboard API
-    Alert.alert('Copied', `Referral code ${referralCode} copied to clipboard!`);
+    if (stats?.referralCode) {
+      Alert.alert('Copied', `Referral code ${stats.referralCode} copied!`);
+    }
   };
 
   const shareReferralLink = async () => {
+    if (!stats?.referralCode) return;
+    
     try {
-      const referralLink = `https://quantum-ia.com/presale?ref=${referralCode}`;
+      const referralLink = `https://quantum-ia.com/presale?ref=${stats.referralCode}`;
       await Share.share({
-        message: `Join Quantum IA Pre-Sale with my referral code: ${referralCode}\n\n${referralLink}`,
+        message: `Join Quantum IA Pre-Sale with my referral code: ${stats.referralCode}\\n\\n${referralLink}`,
         title: 'Quantum IA Referral',
       });
     } catch (error) {
@@ -67,7 +67,32 @@ export default function Affiliation() {
     }
   };
 
-  const referralLink = `https://quantum-ia.com/presale?ref=${referralCode}`;
+  if (!connected) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.disconnectedContainer}>
+          <Ionicons name="link-outline" size={80} color={COLORS.textTertiary} />
+          <Text style={styles.disconnectedTitle}>Connect Wallet</Text>
+          <Text style={styles.disconnectedSubtitle}>
+            Connect your wallet to access your referral dashboard
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading referral data...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -80,7 +105,7 @@ export default function Affiliation() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Referral Program</Text>
-          <Text style={styles.headerSubtitle}>Earn {COMMISSION_PERCENTAGE}% commission on all referral purchases</Text>
+          <Text style={styles.headerSubtitle}>Earn {COMMISSION_PERCENTAGE}% commission on all referrals</Text>
         </View>
 
         {/* Referral Card */}
@@ -91,14 +116,14 @@ export default function Affiliation() {
           </View>
           
           <View style={styles.codeContainer}>
-            <Text style={styles.codeText}>{referralCode || 'Connect wallet to get code'}</Text>
+            <Text style={styles.codeText}>{stats?.referralCode || 'Loading...'}</Text>
           </View>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
               style={styles.actionButton}
               onPress={copyReferralCode}
-              disabled={!referralCode}
+              disabled={!stats?.referralCode}
             >
               <Ionicons name="copy-outline" size={18} color={COLORS.textPrimary} />
               <Text style={styles.actionButtonText}>Copy</Text>
@@ -107,7 +132,7 @@ export default function Affiliation() {
             <TouchableOpacity
               style={[styles.actionButton, styles.actionButtonPrimary]}
               onPress={shareReferralLink}
-              disabled={!referralCode}
+              disabled={!stats?.referralCode}
             >
               <Ionicons name="share-outline" size={18} color={COLORS.textPrimary} />
               <Text style={styles.actionButtonText}>Share</Text>
@@ -117,33 +142,33 @@ export default function Affiliation() {
 
         {/* Stats Grid */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance Overview</Text>
+          <Text style={styles.sectionTitle}>Performance</Text>
           
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Ionicons name="people-outline" size={24} color={COLORS.textSecondary} />
-              <Text style={styles.statValue}>{stats.referrals}</Text>
+              <Text style={styles.statValue}>{stats?.referrals || 0}</Text>
               <Text style={styles.statLabel}>Referrals</Text>
             </View>
 
             <View style={styles.statCard}>
               <Ionicons name="trending-up-outline" size={24} color={COLORS.textSecondary} />
-              <Text style={styles.statValue}>{stats.totalPurchased.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Tokens Purchased</Text>
+              <Text style={styles.statValue}>{stats?.totalPurchased?.toLocaleString() || 0}</Text>
+              <Text style={styles.statLabel}>Tokens</Text>
             </View>
           </View>
         </View>
 
-        {/* Commission Breakdown */}
+        {/* Commission */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Commission Breakdown</Text>
+          <Text style={styles.sectionTitle}>Commission</Text>
 
           <View style={styles.commissionCard}>
             <View style={styles.commissionRow}>
               <View style={styles.commissionInfo}>
                 <Text style={styles.commissionLabel}>Total Earned</Text>
                 <Text style={styles.commissionValue}>
-                  ${stats.commissionEarned.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${(stats?.commissionEarned || 0).toFixed(2)}
                 </Text>
               </View>
               <View style={styles.commissionBadge}>
@@ -160,7 +185,7 @@ export default function Affiliation() {
                   <Text style={styles.commissionDetailText}>Pending</Text>
                 </View>
                 <Text style={styles.commissionDetailValue}>
-                  ${stats.commissionPending.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${(stats?.commissionPending || 0).toFixed(2)}
                 </Text>
               </View>
 
@@ -170,62 +195,11 @@ export default function Affiliation() {
                   <Text style={styles.commissionDetailText}>Paid</Text>
                 </View>
                 <Text style={styles.commissionDetailValue}>
-                  ${stats.commissionPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${(stats?.commissionPaid || 0).toFixed(2)}
                 </Text>
               </View>
             </View>
           </View>
-        </View>
-
-        {/* How It Works */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How It Works</Text>
-
-          <View style={styles.howItWorksCard}>
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>1</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Share Your Code</Text>
-                <Text style={styles.stepDescription}>
-                  Share your unique referral code with potential investors
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>2</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>They Purchase</Text>
-                <Text style={styles.stepDescription}>
-                  When they buy QUANTUM tokens using your code
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.step}>
-              <View style={styles.stepNumber}>
-                <Text style={styles.stepNumberText}>3</Text>
-              </View>
-              <View style={styles.stepContent}>
-                <Text style={styles.stepTitle}>Earn Commission</Text>
-                <Text style={styles.stepDescription}>
-                  You earn {COMMISSION_PERCENTAGE}% commission in QUANTUM or USDC
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Terms */}
-        <View style={styles.terms}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.textTertiary} />
-          <Text style={styles.termsText}>
-            Commissions are paid monthly. Minimum payout threshold is $100 USD.
-          </Text>
         </View>
 
         <View style={{ height: 100 }} />
@@ -238,6 +212,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  disconnectedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xl,
+  },
+  disconnectedTitle: {
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  disconnectedSubtitle: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.md,
   },
   scrollView: {
     flex: 1,
@@ -421,61 +423,5 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: FONT_WEIGHTS.semibold,
     color: COLORS.textPrimary,
-  },
-  howItWorksCard: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.lg,
-  },
-  step: {
-    flexDirection: 'row',
-    marginBottom: SPACING.lg,
-  },
-  stepNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.sm,
-    backgroundColor: COLORS.surfaceElevated,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  stepNumberText: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: FONT_WEIGHTS.bold,
-    color: COLORS.primary,
-  },
-  stepContent: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: FONT_SIZES.md,
-    fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  stepDescription: {
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  terms: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-  },
-  termsText: {
-    flex: 1,
-    fontSize: FONT_SIZES.sm,
-    color: COLORS.textTertiary,
-    lineHeight: 18,
   },
 });
