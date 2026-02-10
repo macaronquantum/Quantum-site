@@ -3,7 +3,7 @@ import {
   View,
   Text,
   StyleSheet,
-  Pressable,
+  TouchableOpacity,
   Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
