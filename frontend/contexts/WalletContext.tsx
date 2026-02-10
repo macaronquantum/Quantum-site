@@ -460,16 +460,25 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
 
         // ── WEB without extension: REDIRECT flow ──
-        // Clear any old keypair to ensure fresh connection
-        dappKeyPair.current = null;
-        webStorageRemove(KEYPAIR_PUBLIC_KEY);
-        webStorageRemove(KEYPAIR_SECRET_KEY);
-        
-        // Generate fresh keypair for this connection
+        // Get or create keypair (reuse existing if available)
         const kp = await getOrCreateKeyPair();
         const dappPubKeyB58 = await bs58Encode(Array.from(kp.publicKey));
         
-        console.log('[Wallet] Fresh keypair for connection, pubKey:', dappPubKeyB58.substring(0, 12) + '...');
+        // Double-check that keypair is stored
+        const verifyPub = webStorageGet(KEYPAIR_PUBLIC_KEY);
+        const verifySec = webStorageGet(KEYPAIR_SECRET_KEY);
+        console.log('[Wallet] Keypair verification - pub stored:', !!verifyPub, 'sec stored:', !!verifySec);
+        
+        if (!verifyPub || !verifySec) {
+          // Force store again
+          const pubB58 = await bs58Encode(Array.from(kp.publicKey));
+          const secB58 = await bs58Encode(Array.from(kp.secretKey));
+          webStorageSet(KEYPAIR_PUBLIC_KEY, pubB58);
+          webStorageSet(KEYPAIR_SECRET_KEY, secB58);
+          console.log('[Wallet] Re-stored keypair to ensure persistence');
+        }
+        
+        console.log('[Wallet] Using pubKey for connection:', dappPubKeyB58.substring(0, 16) + '...');
         
         const currentUrl = window.location.origin + window.location.pathname;
 
