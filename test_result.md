@@ -174,11 +174,14 @@ backend:
     file: "backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "POST /api/presale/purchase endpoint, handles card (Stripe checkout) and crypto payments"
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed: crypto payment ($2500 for 1000 tokens), card payment (Stripe checkout created), validation (correctly rejects <100 tokens), webhook endpoint secure. All functionality working correctly."
 
   - task: "Pre-sale config endpoint"
     implemented: true
