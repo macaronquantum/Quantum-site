@@ -8,7 +8,7 @@ import json
 
 def test_stripe_endpoints():
     """Test additional Stripe-related endpoints"""
-    base_url = "https://governance-fintech.preview.emergentagent.com/api"
+    base_url = "https://web3-auth-flow.preview.emergentagent.com/api"
     session = requests.Session()
     session.timeout = 10
     
