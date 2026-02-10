@@ -108,15 +108,12 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl,
-    paddingBottom: SPACING.lg,
-    minHeight: SCREEN_HEIGHT - 100,
+    paddingVertical: SPACING.xxl,
   },
   topSection: {
-    flex: 1,
-    justifyContent: 'center',
+    marginBottom: SPACING.lg,
   },
   logoSection: {
     alignItems: 'center',
