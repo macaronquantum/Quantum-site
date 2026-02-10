@@ -15,7 +15,6 @@ export default function Index() {
         style={styles.container}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        bounces={false}
       >
         {/* Logo - Arrondi */}
         <View style={styles.logoSection}>
@@ -72,100 +71,28 @@ export default function Index() {
           </Pressable>
         </Link>
         
-        <Text style={styles.disclaimer}>Built on Solana \u2022 Production Ready</Text>
+        <Text style={styles.disclaimer}>Built on Solana</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  container: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    gap: SPACING.lg,
-  },
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  logoWrapper: {
-    borderRadius: BORDER_RADIUS.xxl,
-    overflow: 'hidden',
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  logoImage: {
-    width: 64,
-    height: 64,
-    borderRadius: BORDER_RADIUS.lg,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: FONT_WEIGHTS.heavy,
-    color: COLORS.textPrimary,
-    letterSpacing: 3,
-    marginBottom: SPACING.xs,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.normal,
-    color: COLORS.textSecondary,
-  },
-  features: {
-    gap: SPACING.sm,
-  },
-  featureCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    padding: SPACING.md,
-    gap: SPACING.md,
-  },
-  featureText: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  featureDesc: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: FONT_WEIGHTS.normal,
-    color: COLORS.textSecondary,
-  },
-  primaryButton: {
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
-    marginTop: SPACING.lg,
-  },
-  buttonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.base,
-  },
-  buttonText: {
-    fontSize: FONT_SIZES.base,
-    fontWeight: FONT_WEIGHTS.semibold,
-    color: COLORS.textPrimary,
-  },
-  disclaimer: {
-    fontSize: FONT_SIZES.xs,
-    fontWeight: FONT_WEIGHTS.normal,
-    color: COLORS.textTertiary,
-    textAlign: 'center',
-    marginTop: SPACING.md,
-  },
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1 },
+  scrollContent: { paddingHorizontal: SPACING.base, paddingVertical: SPACING.lg, gap: SPACING.lg },
+  logoSection: { alignItems: 'center', marginBottom: SPACING.sm },
+  logoWrapper: { borderRadius: BORDER_RADIUS.xxl, overflow: 'hidden', backgroundColor: COLORS.surface, padding: SPACING.sm, marginBottom: SPACING.base },
+  logoImage: { width: 60, height: 60, borderRadius: BORDER_RADIUS.xl },
+  title: { fontSize: 28, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.textPrimary, letterSpacing: 2, marginBottom: SPACING.xs },
+  subtitle: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary },
+  features: { gap: SPACING.sm, marginBottom: SPACING.sm },
+  featureCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, gap: SPACING.md },
+  featureText: { flex: 1 },
+  featureTitle: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: 2 },
+  featureDesc: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary },
+  primaryButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', marginTop: SPACING.sm },
+  buttonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm, paddingVertical: SPACING.base },
+  buttonText: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary },
+  disclaimer: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textTertiary, textAlign: 'center', marginTop: SPACING.md },
 });

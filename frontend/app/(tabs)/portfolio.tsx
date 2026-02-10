@@ -2,9 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
-import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS, SHADOWS } from '../../constants/theme';
+import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const QUANTUM_USD_RATE = 2.5;
 
@@ -21,28 +22,29 @@ export default function Portfolio() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const handleConnectWallet = async () => {
+  const handleConnect = async () => {
+    console.log('Connect button pressed');
     try {
       await connectWallet();
-      Alert.alert('Success', 'Wallet connected successfully!');
+      console.log('Wallet connected successfully');
+      Alert.alert('Success', 'Wallet connected!');
     } catch (error) {
+      console.error('Connect error:', error);
       Alert.alert('Error', 'Failed to connect wallet');
     }
   };
 
   if (!connected) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar style="light" />
         <View style={styles.disconnectedContainer}>
           <View style={styles.walletIconContainer}>
             <Ionicons name="wallet-outline" size={64} color={COLORS.textTertiary} />
           </View>
           <Text style={styles.disconnectedTitle}>Connect Wallet</Text>
-          <Text style={styles.disconnectedSubtitle}>
-            Connect your Solana wallet to view your portfolio and participate in governance
-          </Text>
-          <TouchableOpacity style={styles.connectButton} onPress={handleConnectWallet}>
+          <Text style={styles.disconnectedSubtitle}>Connect your Solana wallet to view portfolio</Text>
+          <TouchableOpacity style={styles.connectButton} onPress={handleConnect}>
             <LinearGradient
               colors={[COLORS.primary, COLORS.primaryDark]}
               start={{ x: 0, y: 0 }}
@@ -54,15 +56,14 @@ export default function Portfolio() {
             </LinearGradient>
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Portfolio</Text>
           <View style={styles.walletAddress}>
@@ -71,17 +72,15 @@ export default function Portfolio() {
           </View>
         </View>
 
-        {/* Total Value Card */}
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>Total Value</Text>
           <Text style={styles.totalValue}>${totalUsdValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
           <View style={styles.totalChange}>
-            <Ionicons name="trending-up" size={16} color={COLORS.success} />
+            <Ionicons name="trending-up" size={14} color={COLORS.success} />
             <Text style={styles.totalChangeText}>+12.4% (24h)</Text>
           </View>
         </View>
 
-        {/* Holdings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Holdings</Text>
           
@@ -114,7 +113,6 @@ export default function Portfolio() {
           </View>
         </View>
 
-        {/* Governance */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Governance</Text>
           <View style={styles.governanceCard}>
@@ -127,47 +125,47 @@ export default function Portfolio() {
           </View>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 80 }} />
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
   disconnectedContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SPACING.xl },
-  walletIconContainer: { width: 120, height: 120, borderRadius: BORDER_RADIUS.xxl, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl, ...SHADOWS.subtle },
+  walletIconContainer: { width: 100, height: 100, borderRadius: BORDER_RADIUS.xxl, backgroundColor: COLORS.surface, alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.xl },
   disconnectedTitle: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  disconnectedSubtitle: { fontSize: FONT_SIZES.base, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.xxl, lineHeight: 22 },
-  connectButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', ...SHADOWS.medium },
+  disconnectedSubtitle: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.xxl },
+  connectButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
   connectButtonGradient: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: SPACING.base, paddingHorizontal: SPACING.xl },
-  connectButtonText: { fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary },
+  connectButtonText: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary },
   scrollView: { flex: 1 },
-  scrollContent: { paddingTop: 60, paddingHorizontal: SPACING.lg },
-  header: { marginBottom: SPACING.xl },
-  headerTitle: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  scrollContent: { paddingHorizontal: SPACING.base, paddingTop: SPACING.lg, paddingBottom: SPACING.xl },
+  header: { marginBottom: SPACING.lg },
+  headerTitle: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.xs },
   walletAddress: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  walletAddressText: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, fontFamily: 'monospace' },
-  totalCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, marginBottom: SPACING.xl, ...SHADOWS.subtle },
-  totalLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, marginBottom: SPACING.xs },
-  totalValue: { fontSize: FONT_SIZES.huge, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  walletAddressText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary, fontFamily: 'monospace' },
+  totalCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.lg },
+  totalLabel: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary, marginBottom: SPACING.xs },
+  totalValue: { fontSize: 32, fontWeight: FONT_WEIGHTS.heavy, color: COLORS.textPrimary, marginBottom: SPACING.xs },
   totalChange: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  totalChangeText: { fontSize: FONT_SIZES.sm, color: COLORS.success, fontWeight: FONT_WEIGHTS.semibold },
-  section: { marginBottom: SPACING.xl },
-  sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: SPACING.base },
-  tokenCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, marginBottom: SPACING.md, ...SHADOWS.subtle },
-  tokenHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
-  tokenLogo: { width: 36, height: 36, marginRight: SPACING.md },
+  totalChangeText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.success },
+  section: { marginBottom: SPACING.lg },
+  sectionTitle: { fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: SPACING.md },
+  tokenCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm },
+  tokenHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
+  tokenLogo: { width: 32, height: 32, borderRadius: BORDER_RADIUS.lg, marginRight: SPACING.md },
   tokenInfo: { flex: 1 },
-  tokenName: { fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: 2 },
-  tokenSymbol: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
+  tokenName: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: 2 },
+  tokenSymbol: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary },
   tokenFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tokenAmount: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary },
-  tokenUsd: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  governanceCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.lg, ...SHADOWS.subtle },
+  tokenUsd: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary },
+  governanceCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.base },
   governanceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  governanceLabel: { fontSize: FONT_SIZES.md, color: COLORS.textSecondary },
-  governanceValue: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.primary },
-  divider: { height: 1, backgroundColor: COLORS.divider, marginVertical: SPACING.base },
-  governanceNote: { fontSize: FONT_SIZES.sm, color: COLORS.textTertiary, textAlign: 'center' },
+  governanceLabel: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textSecondary },
+  governanceValue: { fontSize: FONT_SIZES.xl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.primary },
+  divider: { height: 1, backgroundColor: COLORS.divider, marginVertical: SPACING.sm },
+  governanceNote: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.normal, color: COLORS.textTertiary, textAlign: 'center' },
 });
