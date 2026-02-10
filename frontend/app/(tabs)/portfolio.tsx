@@ -315,6 +315,12 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   installButtonText: { fontSize: FONT_SIZES.xs, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.primary },
+  successCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.success + '40',
+    borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, marginTop: SPACING.lg, width: '100%', maxWidth: 340,
+  },
+  successTitle: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.bold, color: COLORS.success, marginBottom: 4 },
   // Connected
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg },
