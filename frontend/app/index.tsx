@@ -14,6 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Index() {
+  const router = useRouter();
+  
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="light" />
@@ -67,21 +69,23 @@ export default function Index() {
         </View>
       </View>
 
-      {/* Bottom pinned section */}
+      {/* Bottom pinned button */}
       <View style={styles.bottomSection}>
-        <Link href="/(tabs)/portfolio" asChild>
-          <Pressable style={styles.primaryButton}>
-            <LinearGradient
-              colors={[COLORS.primary, COLORS.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.buttonGradient}
-            >
-              <Text style={styles.buttonText}>Access Platform</Text>
-              <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
-            </LinearGradient>
-          </Pressable>
-        </Link>
+        <TouchableOpacity 
+          style={styles.primaryButton}
+          onPress={() => router.push('/(tabs)/portfolio')}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[COLORS.primary, COLORS.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.buttonGradient}
+          >
+            <Text style={styles.buttonText}>Access Platform</Text>
+            <Ionicons name="arrow-forward" size={18} color={COLORS.textPrimary} />
+          </LinearGradient>
+        </TouchableOpacity>
         <Text style={styles.disclaimer}>Built on Solana • Powered by Quantum IA</Text>
       </View>
     </SafeAreaView>
