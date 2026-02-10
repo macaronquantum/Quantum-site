@@ -206,34 +206,40 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.removeItem(WALLET_KEY);
   };
 
-  // ─── Connect Wallet (SIMPLE - NO ENCRYPTION) ───────────────
+  // ─── Connect Wallet (SIMPLE - INJECTED PROVIDER ONLY) ──────
   const connectWallet = async () => {
+    console.log('[Wallet] Connect button clicked');
+    
     if (connecting) return;
     setConnecting(true);
     setError(null);
 
     try {
-      // Get Phantom provider
-      const provider = getPhantomProvider();
+      // ═══════════════════════════════════════════════════════
+      // CHECK FOR INJECTED PROVIDER - NO REDIRECTS, NO DEEP LINKS
+      // ═══════════════════════════════════════════════════════
       
-      if (!provider) {
-        // No Phantom detected - redirect to install
+      if (Platform.OS !== 'web' || typeof window === 'undefined') {
+        setError('Web browser required.');
+        return;
+      }
+      
+      const solana = (window as any).solana;
+      
+      if (!solana || !solana.isPhantom) {
+        console.log('[Wallet] Phantom wallet not detected');
         setError('NO_WALLET');
-        console.log('[Wallet] Phantom not detected, redirecting to install...');
-        
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          window.open('https://phantom.app/', '_blank');
-        }
+        // DO NOT redirect - just show error
         return;
       }
 
       // ═══════════════════════════════════════════════════════
       // THE ONLY VALID WAY TO CONNECT:
-      // Just call provider.connect() - NO encryption, NO keypairs
+      // Just call solana.connect() - NO encryption, NO keypairs
       // ═══════════════════════════════════════════════════════
       
-      console.log('[Wallet] Connecting to Phantom...');
-      const response = await provider.connect();
+      console.log('[Wallet] Calling window.solana.connect()...');
+      const response = await solana.connect();
       
       // Get the publicKey - THIS IS THE ONLY SOURCE OF TRUTH
       const publicKey = response.publicKey.toString();
@@ -246,7 +252,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(WALLET_KEY, publicKey);
       
     } catch (err: any) {
-      console.error('[Wallet] Connect error:', err?.message || err);
+      console.error('[Wallet] User rejected or connection failed:', err?.message || err);
       
       if (err?.code === 4001) {
         setError('Connection rejected by user.');
