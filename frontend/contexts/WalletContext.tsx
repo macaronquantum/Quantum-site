@@ -80,6 +80,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // On-chain data
   const [quantumBalance, setQuantumBalance] = useState<TokenBalance | null>(null);
@@ -93,6 +94,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const dappKeyPair = useRef(nacl.box.keyPair());
   const sharedSecretRef = useRef<Uint8Array | null>(null);
   const sessionRef = useRef<string | null>(null);
+
+  const clearError = useCallback(() => setError(null), []);
 
   // ─── Restore session on mount ─────────────────────────────
   useEffect(() => {
