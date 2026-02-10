@@ -258,34 +258,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             const addr = resp.publicKey.toString();
             setConnected(true);
             setAddress(addr);
+            setError(null);
             await AsyncStorage.setItem('walletAddress', addr);
             console.log('Wallet connected:', addr);
           } catch (err: any) {
             if (err?.code === 4001) {
-              Alert.alert('Rejected', 'You rejected the connection request.');
+              setError('Connection rejected by user.');
             } else {
-              Alert.alert('Error', err?.message || 'Connection failed.');
+              setError(err?.message || 'Connection failed.');
             }
           }
           setConnecting(false);
           return;
         }
 
-        // No Solana wallet detected
-        Alert.alert(
-          'No Solana Wallet Detected',
-          'Please install Phantom or another Solana wallet extension.',
-          [
-            {
-              text: 'Get Phantom',
-              onPress: () => {
-                if (typeof window !== 'undefined')
-                  window.open('https://phantom.app/', '_blank');
-              },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ]
-        );
+        // No Solana wallet detected — set inline error
+        setError('NO_WALLET');
         setConnecting(false);
         return;
       }
