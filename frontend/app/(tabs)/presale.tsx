@@ -298,8 +298,6 @@ export default function PreSale() {
   );
 }
 
-import { LinearGradient } from 'expo-linear-gradient';
-
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   container: { flex: 1 },
