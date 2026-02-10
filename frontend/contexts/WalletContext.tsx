@@ -58,8 +58,28 @@ WebBrowser.maybeCompleteAuthSession();
 
 // ─── Storage Keys ───────────────────────────────────────────
 const WALLET_KEY = 'walletAddress';
-const KEYPAIR_PUBLIC_KEY = 'dappPublicKey';
-const KEYPAIR_SECRET_KEY = 'dappSecretKey';
+const KEYPAIR_PUBLIC_KEY = 'phantom_dapp_public_key';
+const KEYPAIR_SECRET_KEY = 'phantom_dapp_secret_key';
+
+// ─── Web localStorage helpers (more reliable for redirects) ─
+function webStorageSet(key: string, value: string): void {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.setItem(key, value);
+  }
+}
+
+function webStorageGet(key: string): string | null {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage.getItem(key);
+  }
+  return null;
+}
+
+function webStorageRemove(key: string): void {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    window.localStorage.removeItem(key);
+  }
+}
 
 // ─── Types ──────────────────────────────────────────────────
 export interface WalletState {
