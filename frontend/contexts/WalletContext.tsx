@@ -277,37 +277,60 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const checkForPhantomCallback = useCallback(async () => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     
-    const url = window.location.href;
     const params = new URLSearchParams(window.location.search);
     
     // Check if this is a Phantom callback
     if (params.has('phantom_encryption_public_key') || params.has('errorCode')) {
-      console.log('[Wallet] Detected Phantom callback in URL');
+      console.log('[Wallet] ========== PHANTOM CALLBACK DETECTED ==========');
+      console.log('[Wallet] URL:', window.location.href.substring(0, 100) + '...');
+      console.log('[Wallet] Has phantom_encryption_public_key:', params.has('phantom_encryption_public_key'));
+      console.log('[Wallet] Has errorCode:', params.has('errorCode'));
+      
+      // Check if we have a stored keypair
+      const storedPub = webStorageGet(KEYPAIR_PUBLIC_KEY);
+      console.log('[Wallet] Stored keypair exists:', !!storedPub);
+      if (storedPub) {
+        console.log('[Wallet] Stored pubKey:', storedPub.substring(0, 12) + '...');
+      }
+      
       setConnecting(true);
       
       try {
         if (params.has('errorCode')) {
           const errMsg = params.get('errorMessage') || 'Connection rejected.';
+          console.log('[Wallet] Phantom returned error:', errMsg);
           setError(errMsg);
         } else {
+          console.log('[Wallet] Attempting to decrypt response...');
           const walletAddress = await decryptPhantomResponse(params);
           if (walletAddress) {
             setConnected(true);
             setAddress(walletAddress);
             await AsyncStorage.setItem(WALLET_KEY, walletAddress);
-            console.log('[Wallet] Connected via redirect:', walletAddress);
+            console.log('[Wallet] SUCCESS! Connected via redirect:', walletAddress);
+            
+            // Clear the keypair after successful connection
+            webStorageRemove(KEYPAIR_PUBLIC_KEY);
+            webStorageRemove(KEYPAIR_SECRET_KEY);
           }
         }
       } catch (err: any) {
         console.error('[Wallet] Callback processing error:', err);
         setError(err?.message || 'Connection failed.');
+        
+        // Clear keypair on error so user can try fresh
+        webStorageRemove(KEYPAIR_PUBLIC_KEY);
+        webStorageRemove(KEYPAIR_SECRET_KEY);
       } finally {
         setConnecting(false);
         
         // Clean URL by removing Phantom params
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
+        console.log('[Wallet] ========== CALLBACK PROCESSING COMPLETE ==========');
       }
+    }
+  }, [decryptPhantomResponse]);
     }
   }, [decryptPhantomResponse]);
 
