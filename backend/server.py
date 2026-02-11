@@ -871,13 +871,13 @@ async def get_token_holders_count() -> int:
 
 async def get_wallet_total_value_usd() -> dict:
     """
-    Get total USD value of ALL assets on the presale wallet.
-    SOL balance * SOL price + Quantum tokens * Quantum price + USDC balance.
-    Simple: 3 RPC calls max, no transaction parsing needed.
+    Get total USD value of wallet assets EXCLUDING Quantum tokens.
+    Includes: SOL, USDC, USDT, and any other priceable tokens (HYPE etc).
     """
     sol_price = await get_sol_price_usd()
     sol_balance = 0.0
     total_usd = 0.0
+    token_details = []
 
     # Get SOL balance
     try:
@@ -900,15 +900,23 @@ async def get_wallet_total_value_usd() -> dict:
             mint = info["mint"]
             ui_amount = info["tokenAmount"].get("uiAmount", 0) or 0
 
+            # SKIP Quantum tokens - not part of presale raised amount
             if mint == QUANTUM_MINT:
-                # Quantum tokens at presale price
-                total_usd += ui_amount * TOKEN_PRICE
+                continue
             elif mint == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v":
                 # USDC (1:1 with USD)
                 total_usd += ui_amount
+                token_details.append({"name": "USDC", "amount": ui_amount, "usd": ui_amount})
             elif mint == "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB":
                 # USDT (1:1 with USD)
                 total_usd += ui_amount
+                token_details.append({"name": "USDT", "amount": ui_amount, "usd": ui_amount})
+            else:
+                # Try to price unknown tokens via CoinGecko (e.g. HYPE bridged)
+                token_usd = await get_spl_token_usd_value(mint, ui_amount)
+                if token_usd > 0:
+                    total_usd += token_usd
+                    token_details.append({"name": mint[:8], "amount": ui_amount, "usd": round(token_usd, 2)})
     except Exception:
         pass
 
@@ -921,7 +929,25 @@ async def get_wallet_total_value_usd() -> dict:
         "sol_balance": round(sol_balance, 4),
         "sol_price_usd": sol_price,
         "sol_value_usd": round(sol_usd, 2),
+        "tokens": token_details,
     }
+
+
+async def get_spl_token_usd_value(mint: str, amount: float) -> float:
+    """Try to get USD value of a SPL token via CoinGecko contract lookup."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://api.coingecko.com/api/v3/simple/token_price/solana",
+                params={"contract_addresses": mint, "vs_currencies": "usd"},
+            )
+            data = resp.json()
+            price = data.get(mint.lower(), {}).get("usd", 0)
+            if not price:
+                price = data.get(mint, {}).get("usd", 0)
+            return amount * price if price else 0
+    except Exception:
+        return 0
 
 
 @app.get("/api/presale/progress")
