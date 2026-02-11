@@ -695,7 +695,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setConnecting(false);
       connectCalled.current = false;
     }
-  }, [connected, connecting, refreshBalances, setWalletConnected]);
+  }, [connected, connecting, refreshBalances, setWalletConnected, processPhantomResponse]);
 
   // Disconnect
   const disconnectWallet = useCallback(async () => {
