@@ -44,5 +44,9 @@ Cache TTL = 2 hours
 - [ ] Arbre visuel affiliation (P2)
 - [ ] Refactoring server.py (P2)
 
+## Recent Fixes
+- [x] Expo Go connection issue resolved (EXPO_PACKAGER_PROXY_URL)
+- [x] Wallet connect crash fixed: `Linking.createURL` (react-native) replaced with `createURL` from `expo-linking` in WalletContext.tsx
+
 ## Testing: 39/39 backend PASS, frontend verified
-## Last Updated: 2026-02-11
+## Last Updated: 2026-02-15
