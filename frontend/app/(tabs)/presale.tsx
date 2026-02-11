@@ -7,7 +7,6 @@ import {
   TextInput,
   TouchableOpacity,
   Platform,
-  Linking,
   ActivityIndicator,
   KeyboardAvoidingView,
   Image,
@@ -19,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
+import * as Linking from 'expo-linking';
 import axios from 'axios';
 import { showAlert, copyToClipboard as platformCopy } from '../../utils/platform';
 
