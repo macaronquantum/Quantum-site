@@ -46,7 +46,8 @@ Cache TTL = 2 hours
 
 ## Recent Fixes
 - [x] Expo Go connection issue resolved (EXPO_PACKAGER_PROXY_URL)
-- [x] Wallet connect crash fixed: `Linking.createURL` (react-native) replaced with `createURL` from `expo-linking` in WalletContext.tsx
+- [x] Wallet connect crash: `Linking.createURL` from `expo-linking` instead of `react-native`
+- [x] Wallet connect native: `Linking.openURL` opens Phantom app (not website) + URL listener for callback
 
 ## Testing: 39/39 backend PASS, frontend verified
 ## Last Updated: 2026-02-15
