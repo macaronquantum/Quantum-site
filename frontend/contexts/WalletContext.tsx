@@ -483,7 +483,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // Deep link
-      console.log('[Wallet] Using deep link...');
+      console.log('[Wallet] Using deep link with POPUP...');
       await ensureCrypto();
       
       const kp = nacl.box.keyPair();
@@ -492,7 +492,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         sec: Array.from(kp.secretKey),
       });
       
-      console.log('[Wallet] Saving keypair to storage + URL hash...');
+      console.log('[Wallet] Saving keypair to storage...');
       await saveToStorage(KEYPAIR_KEY, keypairJson);
       
       const dappPubKey = bs58.encode(kp.publicKey);
@@ -500,11 +500,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         ? window.location.origin + window.location.pathname
         : Linking.createURL('phantom-callback');
       
-      // CRITICAL FIX: Use hash fragment (#) instead of query param (?)
-      // Hash fragments are preserved across redirects while query params may be stripped
-      const redirectUrl = `${baseUrl}#kp=${encodeURIComponent(keypairJson)}`;
+      // Use base URL as redirect - the popup will redirect there
+      const redirectUrl = baseUrl;
       
-      console.log('[Wallet] Redirect URL with keypair in hash fragment');
+      console.log('[Wallet] Redirect URL:', redirectUrl);
       
       const params = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
@@ -514,10 +513,98 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
       
       const phantomUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
-      console.log('[Wallet] Opening Phantom...');
+      console.log('[Wallet] Opening Phantom in POPUP...');
       
       if (Platform.OS === 'web') {
-        window.location.href = phantomUrl;
+        // POPUP APPROACH: Open in popup window, main page stays open with storage intact
+        const width = 420;
+        const height = 700;
+        const left = (window.screen.width - width) / 2;
+        const top = (window.screen.height - height) / 2;
+        
+        const popup = window.open(
+          phantomUrl,
+          'phantom_connect',
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+        );
+        
+        if (!popup) {
+          // Popup blocked - fall back to redirect
+          console.log('[Wallet] Popup blocked, using redirect...');
+          setError('POPUP BLOQUÉ: Autorisez les popups pour ce site et réessayez, ou utilisez la redirection ci-dessous.');
+          
+          // Store a flag to use redirect next time
+          setTimeout(() => {
+            window.location.href = phantomUrl;
+          }, 3000);
+          return;
+        }
+        
+        console.log('[Wallet] Popup opened, waiting for callback...');
+        
+        // Poll the popup to check when it redirects back
+        const pollInterval = setInterval(() => {
+          try {
+            if (popup.closed) {
+              console.log('[Wallet] Popup was closed');
+              clearInterval(pollInterval);
+              setConnecting(false);
+              connectCalled.current = false;
+              return;
+            }
+            
+            // Check if popup redirected to our URL
+            const popupUrl = popup.location.href;
+            if (popupUrl && popupUrl.startsWith(baseUrl)) {
+              console.log('[Wallet] Popup redirected back!', popupUrl);
+              clearInterval(pollInterval);
+              
+              // Extract params from popup URL
+              const popupParams = new URL(popupUrl).searchParams;
+              const phantomPubKey = popupParams.get('phantom_encryption_public_key');
+              const nonce = popupParams.get('nonce');
+              const data = popupParams.get('data');
+              const errorCode = popupParams.get('errorCode');
+              
+              // Close popup
+              popup.close();
+              
+              if (errorCode) {
+                const errMsg = popupParams.get('errorMessage') || 'Cancelled';
+                setError(`PHANTOM ERREUR (${errorCode}): ${errMsg}`);
+                setConnecting(false);
+                connectCalled.current = false;
+                return;
+              }
+              
+              if (phantomPubKey && nonce && data) {
+                // Process the callback with the data
+                processPhantomResponse(phantomPubKey, nonce, data);
+              } else {
+                setError('ERREUR: Réponse Phantom incomplète');
+                setConnecting(false);
+                connectCalled.current = false;
+              }
+            }
+          } catch (e) {
+            // Cross-origin error - popup is on phantom.app, can't read URL yet
+            // This is expected, keep polling
+          }
+        }, 500);
+        
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (!popup.closed) {
+            popup.close();
+          }
+          if (connecting) {
+            setError('TIMEOUT: La connexion a pris trop de temps');
+            setConnecting(false);
+            connectCalled.current = false;
+          }
+        }, 300000);
+        
       } else {
         const result = await WebBrowser.openAuthSessionAsync(phantomUrl, redirectUrl);
         if (result.type === 'success' && result.url) {
