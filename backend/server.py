@@ -248,6 +248,7 @@ async def distribute_commissions(source_wallet: str, net_amount: float, event_ty
     """
     Distribute commissions to all ancestors based on MLM rates.
     Returns (commissions_created, total_distributed)
+    Also sends notifications to beneficiaries.
     """
     # Get all ancestors of the source user
     ancestors = await affiliate_relations.find(
@@ -278,6 +279,24 @@ async def distribute_commissions(source_wallet: str, net_amount: float, event_ty
                 "event_type": event_type,
                 "event_id": event_id,
                 "status": CommissionStatus.PENDING.value,
+                "created_at": datetime.now(timezone.utc)
+            })
+            
+            # Create notification for beneficiary
+            notification_id = str(uuid.uuid4())
+            await notifications_collection.insert_one({
+                "notification_id": notification_id,
+                "wallet": relation["ancestor_id"],
+                "type": "commission_received",
+                "title": f"Commission Niveau {level} !",
+                "body": f"Vous avez gagné ${commission_amount:.2f} ({rate * 100}%) sur un achat de ${net_amount:.2f}",
+                "data": {
+                    "source_wallet": source_wallet,
+                    "level": level,
+                    "commission_amount": commission_amount,
+                    "purchase_amount": net_amount
+                },
+                "read": False,
                 "created_at": datetime.now(timezone.utc)
             })
             
