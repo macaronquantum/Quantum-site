@@ -391,11 +391,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         
         window.location.href = `https://phantom.app/ul/v1/connect?${phantomParams.toString()}`;
       } else {
-        // Native: keep keypair in memory, use Linking.openURL to open Phantom app
+        // Native: keep keypair in memory + AsyncStorage, use Linking.openURL to open Phantom app
         pendingKeypair.current = { pub: kp.publicKey, sec: kp.secretKey };
+        await AsyncStorage.setItem('phantom_pending_keypair', JSON.stringify({
+          pub: Array.from(kp.publicKey),
+          sec: Array.from(kp.secretKey),
+        }));
         
         const appUrl = Linking.createURL('');
-        const redirectUrl = Linking.createURL('/--/phantom-callback');
+        const redirectUrl = Linking.createURL('phantom-callback');
         console.log('[Wallet] Native redirect URL:', redirectUrl);
         
         const phantomParams = new URLSearchParams({
