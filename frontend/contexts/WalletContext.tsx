@@ -20,11 +20,11 @@ import {
   TokenBalance,
 } from '../utils/solanaRpc';
 
-// ─── Lazy load crypto ───────────────────────────────────────
+// Lazy load crypto
 let nacl: any = null;
 let bs58: any = null;
 
-async function ensureCrypto() {
+async function ensureCrypto(): Promise<void> {
   if (!nacl) {
     const m = await import('tweetnacl');
     nacl = m.default || m;
@@ -35,98 +35,115 @@ async function ensureCrypto() {
   }
 }
 
-// ─── Storage ────────────────────────────────────────────────
+// Storage keys
 const WALLET_KEY = 'quantum_wallet';
 const KEYPAIR_KEY = 'quantum_keypair';
 
+// Save to all storage
 async function saveToStorage(key: string, value: string): Promise<void> {
-  console.log(`[Storage] Saving ${key}...`);
+  const logs: string[] = [];
+  logs.push(`[Storage] Saving ${key}...`);
   
-  // Save to ALL storage mechanisms
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    // localStorage
     try { 
       localStorage.setItem(key, value); 
-      console.log(`[Storage] ✓ Saved to localStorage`); 
-    } catch (e) { 
-      console.log('[Storage] localStorage failed:', e); 
+      logs.push('[Storage] Saved to localStorage');
+    } catch (e: any) { 
+      logs.push(`[Storage] localStorage FAILED: ${e?.message}`);
     }
     
-    // sessionStorage
     try { 
       sessionStorage.setItem(key, value); 
-      console.log(`[Storage] ✓ Saved to sessionStorage`); 
-    } catch (e) { 
-      console.log('[Storage] sessionStorage failed:', e); 
+      logs.push('[Storage] Saved to sessionStorage');
+    } catch (e: any) { 
+      logs.push(`[Storage] sessionStorage FAILED: ${e?.message}`);
     }
     
-    // Cookie (MOST RELIABLE for mobile redirects!)
     try {
-      // Set cookie with 1 hour expiry, SameSite=Lax for redirect compatibility
       document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=3600; SameSite=Lax`;
-      console.log(`[Storage] ✓ Saved to cookie`);
-    } catch (e) {
-      console.log('[Storage] cookie failed:', e);
+      logs.push('[Storage] Saved to cookie');
+    } catch (e: any) {
+      logs.push(`[Storage] cookie FAILED: ${e?.message}`);
     }
   }
   
-  // AsyncStorage
   try { 
     await AsyncStorage.setItem(key, value); 
-    console.log(`[Storage] ✓ Saved to AsyncStorage`); 
-  } catch (e) { 
-    console.log('[Storage] AsyncStorage failed:', e); 
+    logs.push('[Storage] Saved to AsyncStorage');
+  } catch (e: any) { 
+    logs.push(`[Storage] AsyncStorage FAILED: ${e?.message}`);
   }
+  
+  console.log(logs.join('\n'));
 }
 
+// Get from any storage
 async function getFromStorage(key: string): Promise<string | null> {
   console.log(`[Storage] Reading ${key}...`);
   
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    // Try localStorage
     try { 
       const v = localStorage.getItem(key); 
-      if (v) { console.log(`[Storage] ✓ Found in localStorage`); return v; }
-    } catch {}
+      if (v) { 
+        console.log(`[Storage] Found in localStorage`); 
+        return v; 
+      }
+    } catch (e) {
+      console.log('[Storage] localStorage read failed');
+    }
     
-    // Try sessionStorage  
     try { 
       const v = sessionStorage.getItem(key); 
-      if (v) { console.log(`[Storage] ✓ Found in sessionStorage`); return v; }
-    } catch {}
+      if (v) { 
+        console.log(`[Storage] Found in sessionStorage`); 
+        return v; 
+      }
+    } catch (e) {
+      console.log('[Storage] sessionStorage read failed');
+    }
     
-    // Try cookie (MOST RELIABLE for mobile!)
     try {
       const cookies = document.cookie.split(';');
       for (const cookie of cookies) {
-        const [name, ...valueParts] = cookie.trim().split('=');
-        if (name === key && valueParts.length > 0) {
-          const v = decodeURIComponent(valueParts.join('='));
-          if (v) { console.log(`[Storage] ✓ Found in cookie`); return v; }
+        const parts = cookie.trim().split('=');
+        if (parts[0] === key && parts.length > 1) {
+          const v = decodeURIComponent(parts.slice(1).join('='));
+          if (v) { 
+            console.log(`[Storage] Found in cookie`); 
+            return v; 
+          }
         }
       }
-    } catch {}
+    } catch (e) {
+      console.log('[Storage] cookie read failed');
+    }
   }
   
-  // Try AsyncStorage (last resort)
   try {
     const v = await AsyncStorage.getItem(key);
-    if (v) { console.log(`[Storage] ✓ Found in AsyncStorage`); return v; }
-  } catch {}
+    if (v) { 
+      console.log(`[Storage] Found in AsyncStorage`); 
+      return v; 
+    }
+  } catch (e) {
+    console.log('[Storage] AsyncStorage read failed');
+  }
   
-  console.log(`[Storage] ✗ ${key} not found anywhere`);
+  console.log(`[Storage] ${key} NOT FOUND in any storage`);
   return null;
 }
 
+// Clear from all storage
 async function clearFromStorage(key: string): Promise<void> {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try { localStorage.removeItem(key); } catch {}
-    try { sessionStorage.removeItem(key); } catch {}
+    try { localStorage.removeItem(key); } catch (e) {}
+    try { sessionStorage.removeItem(key); } catch (e) {}
+    try { document.cookie = `${key}=; path=/; max-age=0`; } catch (e) {}
   }
-  try { await AsyncStorage.removeItem(key); } catch {}
+  try { await AsyncStorage.removeItem(key); } catch (e) {}
 }
 
-// ─── Types ──────────────────────────────────────────────────
+// Types
 export interface WalletState {
   connected: boolean;
   address: string | null;
@@ -163,7 +180,6 @@ const WalletContext = createContext<WalletState>({
   refreshBalances: async () => {},
 });
 
-// ─── Provider ───────────────────────────────────────────────
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState<string | null>(null);
@@ -177,35 +193,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
   
-  // Guard against double connect
   const connectCalled = useRef(false);
-
   const clearError = useCallback(() => setError(null), []);
 
-  // ─── Set wallet as connected ───────────────────────────────
+  // Set wallet connected
   const setWalletConnected = useCallback((addr: string) => {
-    console.log('[Wallet] ✅ CONNECTED:', addr);
+    console.log('[Wallet] CONNECTED:', addr);
     saveToStorage(WALLET_KEY, addr);
     setAddress(addr);
     setConnected(true);
   }, []);
 
-  // ─── Process callback from Phantom (NO connect() call!) ────
+  // Process Phantom callback
   const processCallback = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
     
     const url = window.location.href;
+    console.log('[Wallet] Checking URL for callback...');
     
     if (!url.includes('phantom_encryption_public_key') && !url.includes('errorCode')) {
       return false;
     }
     
+    console.log('[Wallet] PHANTOM CALLBACK DETECTED');
     const params = new URLSearchParams(window.location.search);
     
-    // Check for Phantom error
+    // Check Phantom error
     if (params.get('errorCode')) {
-      const errMsg = params.get('errorMessage') || 'Cancelled by user';
-      setError(`PHANTOM ERROR: ${errMsg}`);
+      const errMsg = params.get('errorMessage') || 'Cancelled';
+      const fullError = `PHANTOM ERREUR (${params.get('errorCode')}): ${errMsg}`;
+      console.log('[Wallet]', fullError);
+      setError(fullError);
       window.history.replaceState({}, '', window.location.origin + window.location.pathname);
       return false;
     }
@@ -214,65 +232,86 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const nonce = params.get('nonce');
     const data = params.get('data');
     
-    if (!phantomPubKey || !nonce || !data) {
-      setError('ERREUR: Paramètres manquants dans l\'URL de retour Phantom');
-      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-      return false;
-    }
-    
-    // Try to get keypair
-    const keypairJson = await getFromStorage(KEYPAIR_KEY);
-    
     // Clean URL
     window.history.replaceState({}, '', window.location.origin + window.location.pathname);
     
+    if (!phantomPubKey || !nonce || !data) {
+      setError('ERREUR: Paramètres manquants dans URL Phantom (phantom_encryption_public_key, nonce, ou data)');
+      return false;
+    }
+    
+    console.log('[Wallet] Params OK, checking storage for keypair...');
+    
+    // Get keypair
+    const keypairJson = await getFromStorage(KEYPAIR_KEY);
+    
     if (!keypairJson) {
-      // DETAILED ERROR for debugging
-      let debugInfo = 'ERREUR STORAGE: Keypair non trouvé.\n\n';
-      debugInfo += 'Vérification des storages:\n';
+      // Build detailed error
+      let debugMsg = 'ERREUR CRITIQUE: Keypair introuvable!\n\n';
+      debugMsg += 'État des storages:\n';
       
       if (typeof window !== 'undefined') {
         try {
-          const ls = localStorage.getItem(KEYPAIR_KEY);
-          debugInfo += `• localStorage: ${ls ? 'TROUVÉ' : 'VIDE'}\n`;
-        } catch { debugInfo += '• localStorage: ERREUR\n'; }
+          debugMsg += `• localStorage: ${localStorage.getItem(KEYPAIR_KEY) ? 'OUI' : 'NON'}\n`;
+        } catch (e) { debugMsg += '• localStorage: ERREUR\n'; }
         
         try {
-          const ss = sessionStorage.getItem(KEYPAIR_KEY);
-          debugInfo += `• sessionStorage: ${ss ? 'TROUVÉ' : 'VIDE'}\n`;
-        } catch { debugInfo += '• sessionStorage: ERREUR\n'; }
+          debugMsg += `• sessionStorage: ${sessionStorage.getItem(KEYPAIR_KEY) ? 'OUI' : 'NON'}\n`;
+        } catch (e) { debugMsg += '• sessionStorage: ERREUR\n'; }
         
         try {
-          const hasCookie = document.cookie.includes(KEYPAIR_KEY);
-          debugInfo += `• cookie: ${hasCookie ? 'TROUVÉ' : 'VIDE'}\n`;
-        } catch { debugInfo += '• cookie: ERREUR\n'; }
+          debugMsg += `• cookie: ${document.cookie.includes(KEYPAIR_KEY) ? 'OUI' : 'NON'}\n`;
+        } catch (e) { debugMsg += '• cookie: ERREUR\n'; }
       }
       
-      debugInfo += '\nLe navigateur mobile a effacé les données pendant la redirection vers Phantom.';
+      debugMsg += '\nLe navigateur a effacé les données pendant la redirection Phantom.';
+      debugMsg += '\nEssayez dans le navigateur intégré Phantom.';
       
-      setError(debugInfo);
+      setError(debugMsg);
       return false;
     }
+    
+    console.log('[Wallet] Keypair found, decrypting...');
     
     try {
       await ensureCrypto();
       
       const keypair = JSON.parse(keypairJson);
-      const secretKey = new Uint8Array(keypair.sec);
+      if (!keypair.pub || !keypair.sec) {
+        setError('ERREUR: Keypair corrompu (pub ou sec manquant)');
+        return false;
+      }
       
+      const secretKey = new Uint8Array(keypair.sec);
       const phantomBytes = bs58.decode(phantomPubKey);
       const nonceBytes = bs58.decode(nonce);
       const dataBytes = bs58.decode(data);
+      
+      console.log('[Wallet] Decoding OK, computing shared secret...');
       
       const sharedSecret = nacl.box.before(phantomBytes, secretKey);
       const decrypted = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
       
       if (!decrypted) {
-        setError('ERREUR DECRYPTION: Le keypair stocké ne correspond pas à celui envoyé à Phantom. Les données ont peut-être été corrompues.');
+        let errMsg = 'ERREUR DECRYPTION: Échec!\n\n';
+        errMsg += 'Cause probable: Le keypair stocké ne correspond pas à celui envoyé à Phantom.\n';
+        errMsg += 'Cela peut arriver si:\n';
+        errMsg += '• Vous avez cliqué Connect plusieurs fois\n';
+        errMsg += '• Les données ont été corrompues\n';
+        errMsg += '• Le navigateur a modifié les données\n\n';
+        errMsg += 'Solution: Fermez et réessayez UNE SEULE fois.';
+        setError(errMsg);
         return false;
       }
       
+      console.log('[Wallet] Decryption SUCCESS!');
+      
       const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      
+      if (!payload.public_key) {
+        setError('ERREUR: Réponse Phantom invalide (pas de public_key)');
+        return false;
+      }
       
       // SUCCESS
       await clearFromStorage(KEYPAIR_KEY);
@@ -280,38 +319,34 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return true;
       
     } catch (err: any) {
-      setError(`ERREUR TECHNIQUE: ${err?.message || 'Erreur inconnue'}\n\nStack: ${err?.stack?.substring(0, 200) || 'N/A'}`);
+      const errMsg = `ERREUR TECHNIQUE: ${err?.message || 'Inconnue'}\n\nStack: ${err?.stack?.substring(0, 300) || 'N/A'}`;
+      console.error('[Wallet]', errMsg);
+      setError(errMsg);
       return false;
     }
   }, [setWalletConnected]);
 
-  // ─── Initialize: check storage and callback (NO connect!) ──
+  // Initialize
   useEffect(() => {
     const init = async () => {
-      // FIRST: Check for existing publicKey in storage
-      // If exists, wallet is connected - DO NOT reconnect
+      console.log('[Wallet] Initializing...');
+      
+      // Check saved address first
       const savedAddr = await getFromStorage(WALLET_KEY);
       if (savedAddr) {
         console.log('[Wallet] Found saved address:', savedAddr);
         setWalletConnected(savedAddr);
-        return; // STOP - already connected
+        return;
       }
       
-      // SECOND: Check for Phantom callback in URL
-      // This is NOT a connect() call - just reading the response
-      const processed = await processCallback();
-      if (processed) {
-        return; // STOP - just connected via callback
-      }
-      
-      // No auto-connect, no extension check, nothing else
-      // User must click the button to connect
+      // Check for callback
+      await processCallback();
     };
     
     init();
   }, [processCallback, setWalletConnected]);
 
-  // ─── Fetch balances when connected ─────────────────────────
+  // Fetch balances
   useEffect(() => {
     if (connected && address) {
       refreshBalances();
@@ -323,61 +358,62 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [connected, address]);
 
-  // ─── Fetch on-chain data ───────────────────────────────────
   const refreshBalances = useCallback(async () => {
     if (!address) return;
     setLoadingBalances(true);
 
     try {
-      console.log('[Wallet] Fetching balances...');
+      console.log('[Wallet] Fetching balances for', address);
       
-      const [qtm, sol, rate] = await Promise.all([
+      const results = await Promise.all([
         getQuantumBalance(address),
         getSolBalance(address),
         getUsdToEurRate(),
       ]);
+      
+      const qtm = results[0];
+      const sol = results[1];
+      const rate = results[2];
 
-      console.log('[Wallet] Balance:', qtm.amount, 'QTM');
+      console.log('[Wallet] Balance:', qtm.amount, 'QTM,', sol, 'SOL');
       
       setQuantumBalance(qtm);
       setSolBalance(sol);
       setEurRate(rate);
       setUsdValue(qtm.amount * QUANTUM_PRICE_USD);
       setEurValue(qtm.amount * QUANTUM_PRICE_USD * rate);
-    } catch (err) {
-      console.error('[Wallet] Balance error:', err);
+    } catch (err: any) {
+      console.error('[Wallet] Balance error:', err?.message);
     } finally {
       setLoadingBalances(false);
     }
   }, [address]);
 
-  // ─── Connect Wallet (ONLY from user click, ONLY once) ──────
+  // Connect
   const connectWallet = useCallback(async () => {
-    // HARD GUARD: Never connect if already connected or connecting
+    console.log('[Wallet] Connect clicked');
+    
     if (connected || connecting || connectCalled.current) {
-      console.log('[Wallet] Already connected or connecting, skipping');
+      console.log('[Wallet] Already connected/connecting');
       if (connected) await refreshBalances();
       return;
     }
     
-    // HARD GUARD: Check storage
     const savedAddr = await getFromStorage(WALLET_KEY);
     if (savedAddr) {
-      console.log('[Wallet] Found in storage, using that');
+      console.log('[Wallet] Found saved, using it');
       setWalletConnected(savedAddr);
       return;
     }
     
-    console.log('[Wallet] Connect clicked');
     connectCalled.current = true;
     setConnecting(true);
     setError(null);
 
     try {
-      // TRY EXTENSION (desktop only)
+      // Try extension
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         const solana = (window as any).solana;
-        
         if (solana?.isPhantom) {
           console.log('[Wallet] Trying extension...');
           try {
@@ -388,30 +424,42 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             return;
           } catch (err: any) {
             if (err?.code === 4001) {
-              setError('Connection rejected');
+              setError('Connexion rejetée par utilisateur');
               setConnecting(false);
               connectCalled.current = false;
               return;
             }
-            // Fall through to deep link
           }
         }
       }
 
-      // MOBILE: Deep link
+      // Deep link
       console.log('[Wallet] Using deep link...');
       await ensureCrypto();
       
       const kp = nacl.box.keyPair();
-      await saveToStorage(KEYPAIR_KEY, JSON.stringify({
+      const keypairJson = JSON.stringify({
         pub: Array.from(kp.publicKey),
         sec: Array.from(kp.secretKey),
-      }));
+      });
+      
+      console.log('[Wallet] Saving keypair...');
+      await saveToStorage(KEYPAIR_KEY, keypairJson);
+      
+      // Verify saved
+      const verify = await getFromStorage(KEYPAIR_KEY);
+      if (!verify) {
+        setError('ERREUR: Impossible de sauvegarder le keypair. Storage bloqué?');
+        setConnecting(false);
+        connectCalled.current = false;
+        return;
+      }
       
       const dappPubKey = bs58.encode(kp.publicKey);
-      const redirectUrl = window.location.origin + window.location.pathname;
+      const redirectUrl = Platform.OS === 'web' 
+        ? window.location.origin + window.location.pathname
+        : Linking.createURL('phantom-callback');
       
-      console.log('[Wallet] Keypair stored, redirecting...');
       console.log('[Wallet] Redirect URL:', redirectUrl);
       
       const params = new URLSearchParams({
@@ -421,28 +469,40 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         redirect_link: redirectUrl,
       });
       
+      const phantomUrl = `https://phantom.app/ul/v1/connect?${params.toString()}`;
       console.log('[Wallet] Opening Phantom...');
-      window.location.href = `https://phantom.app/ul/v1/connect?${params}`;
-      // Don't reset connectCalled - page will redirect
+      
+      if (Platform.OS === 'web') {
+        window.location.href = phantomUrl;
+      } else {
+        const result = await WebBrowser.openAuthSessionAsync(phantomUrl, redirectUrl);
+        if (result.type === 'success' && result.url) {
+          // Process on native
+          const nativeParams = new URLSearchParams(new URL(result.url).search);
+          // Similar processing...
+        }
+        setConnecting(false);
+        connectCalled.current = false;
+      }
       
     } catch (err: any) {
-      console.error('[Wallet] Error:', err);
-      setError('Connection failed');
+      const errMsg = `ERREUR CONNECT: ${err?.message || 'Inconnue'}`;
+      console.error('[Wallet]', errMsg);
+      setError(errMsg);
       setConnecting(false);
       connectCalled.current = false;
     }
   }, [connected, connecting, refreshBalances, setWalletConnected]);
 
-  // ─── Disconnect ────────────────────────────────────────────
+  // Disconnect
   const disconnectWallet = useCallback(async () => {
     console.log('[Wallet] Disconnecting...');
     
-    // Try to disconnect from extension
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       try { 
         const solana = (window as any).solana;
         if (solana?.disconnect) await solana.disconnect(); 
-      } catch {}
+      } catch (e) {}
     }
     
     setConnected(false);
@@ -454,8 +514,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setError(null);
     connectCalled.current = false;
     
-    clearFromStorage(WALLET_KEY);
-    clearFromStorage(KEYPAIR_KEY);
+    await clearFromStorage(WALLET_KEY);
+    await clearFromStorage(KEYPAIR_KEY);
     
     console.log('[Wallet] Disconnected');
   }, []);
