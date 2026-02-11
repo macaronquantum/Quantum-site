@@ -141,41 +141,50 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const processPhantomCallback = useCallback(async (): Promise<boolean> => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
     
-    const url = window.location.href;
+    const fullUrl = window.location.href;
     const params = new URLSearchParams(window.location.search);
     
     // Check if this is a Phantom callback
-    const hasPhantomParams = params.get('phantom_encryption_public_key') || params.get('errorCode');
+    const phantomPubKey = params.get('phantom_encryption_public_key');
+    const errorCode = params.get('errorCode');
     const sessionId = params.get('sid');
     
-    if (!hasPhantomParams) {
+    // Not a Phantom callback
+    if (!phantomPubKey && !errorCode) {
       return false;
     }
     
     console.log('[Wallet] PHANTOM CALLBACK DETECTED');
-    console.log('[Wallet] Session ID:', sessionId);
+    console.log('[Wallet] Full URL:', fullUrl);
+    console.log('[Wallet] Session ID from URL:', sessionId);
     
-    // Clean URL immediately
-    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    // Log all params for debugging
+    const allParams: string[] = [];
+    params.forEach((v, k) => allParams.push(`${k}=${v.substring(0, 30)}...`));
+    console.log('[Wallet] All params:', allParams.join(', '));
     
-    // Check for Phantom error
-    if (params.get('errorCode')) {
-      const errMsg = params.get('errorMessage') || 'Cancelled';
-      setError(`PHANTOM ERREUR (${params.get('errorCode')}): ${errMsg}`);
+    // Check for Phantom error first
+    if (errorCode) {
+      const errMsg = params.get('errorMessage') || 'Connexion annulée';
+      // Clean URL
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+      setError(`PHANTOM ERREUR (${errorCode}): ${decodeURIComponent(errMsg)}`);
       return false;
     }
     
-    const phantomPubKey = params.get('phantom_encryption_public_key');
     const nonce = params.get('nonce');
     const data = params.get('data');
     
+    // Clean URL now
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    
     if (!phantomPubKey || !nonce || !data) {
-      setError('ERREUR: Paramètres Phantom manquants');
+      setError(`ERREUR: Paramètres Phantom manquants.\n\nReçu:\n• phantom_encryption_public_key: ${phantomPubKey ? 'OUI' : 'NON'}\n• nonce: ${nonce ? 'OUI' : 'NON'}\n• data: ${data ? 'OUI' : 'NON'}`);
       return false;
     }
     
     if (!sessionId) {
-      setError('ERREUR: Session ID manquant dans URL. Le navigateur a peut-être modifié l\'URL.');
+      setError(`ERREUR: Session ID (sid) manquant dans l'URL de retour.\n\nURL reçue: ${fullUrl.substring(0, 150)}...\n\nPhantom a peut-être supprimé le paramètre 'sid' de l'URL.`);
       return false;
     }
     
