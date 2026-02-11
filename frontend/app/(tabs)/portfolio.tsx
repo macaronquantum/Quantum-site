@@ -327,6 +327,12 @@ export default function Portfolio() {
               <Text style={styles.noTokenText}>No Quantum tokens detected in this wallet.</Text>
             </View>
           )}
+
+          {/* Solscan link */}
+          <TouchableOpacity style={styles.solscanRow} onPress={openSolscan} activeOpacity={0.7} data-testid="solscan-link">
+            <Ionicons name="open-outline" size={13} color={COLORS.textTertiary} />
+            <Text style={styles.solscanText}>Voir sur Solscan</Text>
+          </TouchableOpacity>
         </View>
 
         {/* SOL Balance */}
