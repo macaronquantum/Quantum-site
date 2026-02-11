@@ -370,14 +370,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const { session_id } = await sessionResponse.json();
       console.log('[Wallet] Session ID:', session_id);
       
-      // Build redirect URL with session ID
+      // Build redirect URL with session ID IN THE PATH (not query param)
+      // This way Phantom cannot strip it
       const dappPubKey = bs58.encode(kp.publicKey);
       const baseUrl = Platform.OS === 'web' 
-        ? window.location.origin + window.location.pathname
-        : Linking.createURL('phantom-callback');
+        ? window.location.origin
+        : Linking.createURL('');
       
-      // Include session ID in redirect URL
-      const redirectUrl = `${baseUrl}?sid=${session_id}`;
+      // Use path-based session ID: /connect/abc12345
+      const redirectUrl = `${baseUrl}/connect/${session_id}`;
       
       const phantomParams = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
