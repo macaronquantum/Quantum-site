@@ -1,8 +1,10 @@
 /**
  * Direct Solana JSON-RPC client.
- * No @solana/web3.js dependency — avoids the rpc-websockets Metro bug.
- * Pure fetch calls to Solana mainnet-beta.
+ * Uses backend proxy to avoid browser CORS/rate-limit issues.
+ * Falls back to direct RPC if proxy unavailable.
  */
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const RPC_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
@@ -11,6 +13,30 @@ const RPC_ENDPOINTS = [
 
 const QUANTUM_MINT = '4KsZXRH3Xjd7z4CiuwgfNQstC2aHDLdJHv5u3tDixtLc';
 const QUANTUM_PRICE_USD = 2.5;
+
+// ─── Backend proxy for balances (preferred) ─────────────────
+export interface BackendBalanceResponse {
+  wallet: string;
+  sol_balance: number;
+  quantum: TokenBalance;
+  quantum_mint: string;
+  price_usd: number;
+}
+
+export async function getBalancesViaBackend(
+  walletAddress: string
+): Promise<BackendBalanceResponse | null> {
+  try {
+    const response = await fetch(
+      `${BACKEND_URL}/api/solana/balance/${walletAddress}`
+    );
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (err) {
+    console.warn('Backend balance proxy failed:', err);
+    return null;
+  }
+}
 
 async function rpcCall(method: string, params: any[]): Promise<any> {
   let lastError: any;
