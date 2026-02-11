@@ -89,6 +89,39 @@ export default function Portfolio() {
           contentContainerStyle={styles.disconnectedScroll}
           showsVerticalScrollIndicator={false}
         >
+          {/* CTA Banner for disconnected users too */}
+          <View style={{ paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg }}>
+            <TouchableOpacity 
+              style={styles.ctaBanner} 
+              onPress={goToPresale}
+              activeOpacity={0.85}
+              data-testid="cta-presale-banner-disconnected"
+            >
+              <LinearGradient
+                colors={['#6B21A8', '#7C3AED', '#8B5CF6']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaGradient}
+              >
+                <View style={styles.ctaContent}>
+                  <View style={styles.ctaLeft}>
+                    <View style={styles.ctaBadge}>
+                      <Ionicons name="flash" size={12} color="#FCD34D" />
+                      <Text style={styles.ctaBadgeText}>OFFRE LIMITÉE</Text>
+                    </View>
+                    <Text style={styles.ctaTitle}>Acheter des Quantum</Text>
+                    <Text style={styles.ctaSubtitle}>50% du prix de listing • Listing 1er Juin 2026</Text>
+                  </View>
+                  <View style={styles.ctaRight}>
+                    <View style={styles.ctaButton}>
+                      <Ionicons name="arrow-forward" size={20} color={COLORS.primary} />
+                    </View>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.disconnectedInner}>
             <View style={styles.walletIconContainer}>
               <Ionicons name="wallet-outline" size={48} color={COLORS.textTertiary} />
