@@ -10,17 +10,16 @@ import {
   RefreshControl,
   Linking,
   Platform,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
 import { QUANTUM_PRICE_USD, QUANTUM_MINT } from '../../utils/solanaRpc';
+import { showAlert, copyToClipboard as platformCopy } from '../../utils/platform';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
 
 export default function Portfolio() {
   const {
