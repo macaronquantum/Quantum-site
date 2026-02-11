@@ -79,6 +79,14 @@ export default function Portfolio() {
     router.push('/presale');
   };
 
+  const openSolscan = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(SOLSCAN_TOKEN_URL, '_blank');
+    } else {
+      Linking.openURL(SOLSCAN_TOKEN_URL);
+    }
+  };
+
   // ─── Not connected ──────────────────────────────────────────
   if (!connected) {
     return (
