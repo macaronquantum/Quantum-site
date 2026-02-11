@@ -351,7 +351,7 @@ export default function Portfolio() {
           <View style={styles.infoCard}>
             <InfoRow label="Network" value="Solana Mainnet" />
             <View style={styles.infoDivider} />
-            <InfoRow label="Token Mint" value="4KsZ\u2026ixtLc" />
+            <InfoRow label="Token Mint" value="4KsZ\u2026ixtLc" copyable={true} fullValue={QUANTUM_MINT} />
             <View style={styles.infoDivider} />
             <InfoRow label="Price Source" value="Fixed $2.50 (Pre-TGE)" />
           </View>
