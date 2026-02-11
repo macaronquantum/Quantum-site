@@ -8,6 +8,7 @@ from datetime import datetime, timezone, timedelta
 from enum import Enum
 import os
 import uuid
+import httpx
 import secrets
 import string
 from dotenv import load_dotenv
