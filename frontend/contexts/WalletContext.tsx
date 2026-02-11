@@ -233,7 +233,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const init = async () => {
       // FIRST: Check for existing publicKey in storage
       // If exists, wallet is connected - DO NOT reconnect
-      const savedAddr = getFromStorage(WALLET_KEY);
+      const savedAddr = await getFromStorage(WALLET_KEY);
       if (savedAddr) {
         console.log('[Wallet] Found saved address:', savedAddr);
         setWalletConnected(savedAddr);
