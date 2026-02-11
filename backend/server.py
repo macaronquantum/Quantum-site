@@ -1200,20 +1200,15 @@ async def health_check():
 
 @app.post("/api/presale/purchase", response_model=PreSalePurchaseResponse)
 async def create_presale_purchase(purchase: PreSalePurchaseRequest):
-    """Create a pre-sale purchase (Stripe for card, manual for crypto)"""
+    """Create a pre-sale purchase (Card2Crypto for card, manual for crypto)"""
     
     try:
-        # Validate minimum purchase
         if purchase.tokenAmount < MIN_PURCHASE:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Minimum purchase is {MIN_PURCHASE} tokens"
-            )
+            raise HTTPException(status_code=400, detail=f"Minimum purchase is {MIN_PURCHASE} tokens")
         
-        # Calculate total (server-side only)
         total_price = float(purchase.tokenAmount) * TOKEN_PRICE
         
-        # Register user in MLM system if not already registered
+        # Register user in MLM system
         existing_user = await get_user_by_wallet(purchase.walletAddress)
         if not existing_user:
             await register_affiliate(UserCreate(
@@ -1223,7 +1218,6 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
         
         # CRYPTO PAYMENT - Return Solana address
         if purchase.paymentMethod == "crypto":
-            # Store purchase as pending
             purchase_id = str(uuid.uuid4())
             purchase_doc = {
                 "purchase_id": purchase_id,
@@ -1240,8 +1234,7 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 "createdAt": datetime.now(timezone.utc),
                 "updatedAt": datetime.now(timezone.utc)
             }
-            
-            result = await presale_purchases.insert_one(purchase_doc)
+            await presale_purchases.insert_one(purchase_doc)
             
             return PreSalePurchaseResponse(
                 success=True,
@@ -1250,45 +1243,37 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 message=f"Please send ${total_price:.2f} USD worth of SOL/USDC to the provided address"
             )
         
-        # CARD PAYMENT - Use Stripe
+        # CARD PAYMENT - Use Card2Crypto
         elif purchase.paymentMethod == "card":
-            # Initialize Stripe
-            webhook_url = f"{purchase.hostUrl}/api/webhook/stripe"
-            stripe_checkout = StripeCheckout(
-                api_key=STRIPE_API_KEY,
-                webhook_url=webhook_url
-            )
-            
-            # Create success/cancel URLs
-            success_url = f"{purchase.hostUrl}/presale/success?session_id={{{{CHECKOUT_SESSION_ID}}}}"
-            cancel_url = f"{purchase.hostUrl}/presale/cancel"
-            
-            # Metadata for tracking
-            metadata = {
-                "firstName": purchase.firstName,
-                "lastName": purchase.lastName,
-                "email": purchase.email or "",
-                "walletAddress": purchase.walletAddress,
-                "tokenAmount": str(purchase.tokenAmount),
-                "referralCode": purchase.referralCode or ""
-            }
-            
-            # Create Stripe checkout session
-            checkout_request = CheckoutSessionRequest(
-                amount=total_price,
-                currency="usd",
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata=metadata,
-                payment_methods=["card"]
-            )
-            
-            session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(
-                checkout_request
-            )
-            
-            # Store in database as pending
             purchase_id = str(uuid.uuid4())
+            
+            # Step 1: Generate encrypted wallet via Card2Crypto
+            callback_url = f"{purchase.hostUrl}/api/payments/callback?pid={purchase_id}"
+            encoded_callback = urllib.parse.quote(callback_url, safe='')
+            
+            wallet_url = f"{CARD2CRYPTO_API_BASE}/wallet.php?address={CARD2CRYPTO_PAYOUT_WALLET}&callback={encoded_callback}"
+            
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.get(wallet_url)
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=502, detail="Card2Crypto wallet generation failed")
+                wallet_data = resp.json()
+            
+            address_in = wallet_data.get("address_in")
+            if not address_in:
+                raise HTTPException(status_code=502, detail="Card2Crypto did not return encrypted address")
+            
+            # Step 2: Build payment URL (hosted page with multiple providers)
+            email_encoded = urllib.parse.quote(purchase.email or "customer@quantum.io")
+            payment_url = (
+                f"{CARD2CRYPTO_PAY_BASE}/pay.php"
+                f"?address={urllib.parse.quote(address_in, safe='')}"
+                f"&amount={total_price:.2f}"
+                f"&email={email_encoded}"
+                f"&currency=USD"
+            )
+            
+            # Store purchase in DB
             purchase_doc = {
                 "purchase_id": purchase_id,
                 "firstName": purchase.firstName,
@@ -1299,34 +1284,39 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 "totalPrice": total_price,
                 "paymentMethod": "card",
                 "paymentStatus": "pending",
-                "stripeSessionId": session.session_id,
+                "card2crypto_address_in": address_in,
+                "card2crypto_polygon_address": wallet_data.get("polygon_address_in"),
                 "referralCode": purchase.referralCode,
                 "createdAt": datetime.now(timezone.utc),
                 "updatedAt": datetime.now(timezone.utc)
             }
-            
             await presale_purchases.insert_one(purchase_doc)
             
             # Store transaction
-            transaction_doc = {
-                "sessionId": session.session_id,
+            await payment_transactions.insert_one({
                 "purchase_id": purchase_id,
                 "amount": total_price,
                 "currency": "usd",
                 "status": "pending",
                 "paymentStatus": "pending",
-                "metadata": metadata,
+                "payment_gateway": "card2crypto",
+                "metadata": {
+                    "firstName": purchase.firstName,
+                    "lastName": purchase.lastName,
+                    "email": purchase.email or "",
+                    "walletAddress": purchase.walletAddress,
+                    "tokenAmount": str(purchase.tokenAmount),
+                    "referralCode": purchase.referralCode or ""
+                },
                 "createdAt": datetime.now(timezone.utc),
                 "updatedAt": datetime.now(timezone.utc)
-            }
-            
-            await payment_transactions.insert_one(transaction_doc)
+            })
             
             return PreSalePurchaseResponse(
                 success=True,
-                checkoutUrl=session.url,
-                sessionId=session.session_id,
-                message="Redirecting to Stripe checkout"
+                checkoutUrl=payment_url,
+                sessionId=purchase_id,
+                message="Redirecting to payment"
             )
         
         else:
@@ -1339,175 +1329,116 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
         raise HTTPException(status_code=500, detail=f"Failed to create purchase: {str(e)}")
 
 
-@app.get("/api/presale/status/{session_id}")
-async def get_presale_status(session_id: str):
-    """Get the status of a Stripe checkout session"""
+@app.get("/api/payments/callback")
+async def card2crypto_callback(request: Request):
+    """
+    Card2Crypto payment callback - called via GET when payment is confirmed.
+    Params: pid (purchase_id), value_coin, coin, txid_in, txid_out
+    """
+    params = dict(request.query_params)
+    purchase_id = params.get("pid")
+    value_coin = params.get("value_coin")
+    coin = params.get("coin", "polygon_usdc")
+    txid_in = params.get("txid_in")
+    txid_out = params.get("txid_out")
     
-    try:
-        # Check if already processed
-        existing_transaction = await payment_transactions.find_one({"sessionId": session_id})
-        
-        if not existing_transaction:
-            raise HTTPException(status_code=404, detail="Transaction not found")
-        
-        # If already completed, return cached status
-        if existing_transaction.get("paymentStatus") == "paid":
-            return {
-                "status": "complete",
-                "payment_status": "paid",
-                "amount_total": existing_transaction.get("amount"),
-                "currency": existing_transaction.get("currency"),
-                "metadata": existing_transaction.get("metadata", {})
-            }
-        
-        # Initialize Stripe to check status
-        webhook_url = "https://expo-mobile-test.preview.emergentagent.com/api/webhook/stripe"
-        stripe_checkout = StripeCheckout(
-            api_key=STRIPE_API_KEY,
-            webhook_url=webhook_url
+    print(f"[Card2Crypto Callback] pid={purchase_id}, value={value_coin}, coin={coin}, txid_in={txid_in}, txid_out={txid_out}")
+    
+    if not purchase_id:
+        return {"error": "Missing purchase ID"}
+    
+    # Find the purchase
+    purchase = await presale_purchases.find_one({"purchase_id": purchase_id})
+    if not purchase:
+        print(f"[Card2Crypto Callback] Purchase not found: {purchase_id}")
+        return {"error": "Purchase not found"}
+    
+    # Already processed?
+    if purchase.get("paymentStatus") == "paid":
+        return {"status": "already_processed"}
+    
+    # Update purchase as paid
+    await presale_purchases.update_one(
+        {"purchase_id": purchase_id},
+        {"$set": {
+            "paymentStatus": "paid",
+            "card2crypto_value_coin": float(value_coin) if value_coin else 0,
+            "card2crypto_coin": coin,
+            "card2crypto_txid_in": txid_in,
+            "card2crypto_txid_out": txid_out,
+            "paidAt": datetime.now(timezone.utc),
+            "updatedAt": datetime.now(timezone.utc)
+        }}
+    )
+    
+    # Update transaction record
+    await payment_transactions.update_one(
+        {"purchase_id": purchase_id},
+        {"$set": {
+            "status": "paid",
+            "paymentStatus": "paid",
+            "card2crypto_value_coin": float(value_coin) if value_coin else 0,
+            "card2crypto_txid_in": txid_in,
+            "card2crypto_txid_out": txid_out,
+            "updatedAt": datetime.now(timezone.utc)
+        }}
+    )
+    
+    # Distribute MLM commissions
+    await distribute_commissions(
+        source_wallet=purchase["walletAddress"],
+        net_amount=purchase["totalPrice"],
+        event_type=EventType.PRESALE_PURCHASE.value,
+        event_id=purchase_id
+    )
+    
+    # Legacy referral stats
+    if purchase.get("referralCode"):
+        await update_referral_stats(
+            purchase["referralCode"],
+            purchase["totalPrice"],
+            purchase["tokenAmount"]
         )
-        
-        # Get status from Stripe
-        checkout_status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
-        
-        # Update database only if status changed and not already processed
-        if checkout_status.payment_status == "paid" and existing_transaction.get("paymentStatus") != "paid":
-            # Update transaction
-            await payment_transactions.update_one(
-                {"sessionId": session_id},
-                {
-                    "$set": {
-                        "status": checkout_status.status,
-                        "paymentStatus": checkout_status.payment_status,
-                        "updatedAt": datetime.now(timezone.utc)
-                    }
-                }
-            )
-            
-            # Update purchase status
-            await presale_purchases.update_one(
-                {"stripeSessionId": session_id},
-                {
-                    "$set": {
-                        "paymentStatus": "paid",
-                        "updatedAt": datetime.now(timezone.utc)
-                    }
-                }
-            )
-            
-            # Get purchase details for MLM commission distribution
-            purchase = await presale_purchases.find_one({"stripeSessionId": session_id})
-            if purchase:
-                # Distribute MLM commissions
-                await distribute_commissions(
-                    source_wallet=purchase["walletAddress"],
-                    net_amount=purchase["totalPrice"],
-                    event_type=EventType.PRESALE_PURCHASE.value,
-                    event_id=purchase.get("purchase_id", session_id)
-                )
-            
-            # Legacy: Update old referral stats if applicable
-            metadata = checkout_status.metadata
-            if metadata and metadata.get("referralCode"):
-                await update_referral_stats(
-                    metadata.get("referralCode"),
-                    checkout_status.amount_total / 100,  # Convert cents to dollars
-                    int(metadata.get("tokenAmount", 0))
-                )
-        
-        return {
-            "status": checkout_status.status,
-            "payment_status": checkout_status.payment_status,
-            "amount_total": checkout_status.amount_total,
-            "currency": checkout_status.currency,
-            "metadata": checkout_status.metadata
+    
+    # Create notification for buyer
+    await create_notification(
+        wallet=purchase["walletAddress"],
+        notification_type=NotificationType.SYSTEM,
+        title="Paiement confirme !",
+        body=f"Votre achat de {purchase['tokenAmount']} QTM (${purchase['totalPrice']:.2f}) a ete confirme.",
+        data={"purchase_id": purchase_id, "txid_out": txid_out}
+    )
+    
+    print(f"[Card2Crypto Callback] Payment confirmed for {purchase_id}: ${value_coin} USDC")
+    return {"status": "ok"}
+
+
+@app.get("/api/presale/status/{purchase_id}")
+async def get_presale_status(purchase_id: str):
+    """Get the status of a purchase"""
+    
+    purchase = await presale_purchases.find_one(
+        {"purchase_id": purchase_id},
+        {"_id": 0}
+    )
+    
+    if not purchase:
+        raise HTTPException(status_code=404, detail="Purchase not found")
+    
+    return {
+        "status": purchase.get("paymentStatus", "unknown"),
+        "payment_status": purchase.get("paymentStatus", "unknown"),
+        "amount_total": purchase.get("totalPrice"),
+        "currency": "usd",
+        "token_amount": purchase.get("tokenAmount"),
+        "payment_method": purchase.get("paymentMethod"),
+        "txid_out": purchase.get("card2crypto_txid_out"),
+        "metadata": {
+            "firstName": purchase.get("firstName"),
+            "walletAddress": purchase.get("walletAddress"),
+            "tokenAmount": purchase.get("tokenAmount"),
         }
-        
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        print(f"Error checking status: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to check status: {str(e)}")
-
-
-@app.post("/api/webhook/stripe")
-async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events"""
-    
-    try:
-        # Get raw body
-        body = await request.body()
-        signature = request.headers.get("Stripe-Signature")
-        
-        if not signature:
-            raise HTTPException(status_code=400, detail="Missing Stripe signature")
-        
-        # Initialize Stripe
-        webhook_url = str(request.base_url) + "api/webhook/stripe"
-        stripe_checkout = StripeCheckout(
-            api_key=STRIPE_API_KEY,
-            webhook_url=webhook_url
-        )
-        
-        # Handle webhook
-        webhook_response = await stripe_checkout.handle_webhook(body, signature)
-        
-        # Process webhook event
-        if webhook_response.payment_status == "paid":
-            # Update transaction if not already processed
-            existing = await payment_transactions.find_one({"sessionId": webhook_response.session_id})
-            
-            if existing and existing.get("paymentStatus") != "paid":
-                # Update transaction
-                await payment_transactions.update_one(
-                    {"sessionId": webhook_response.session_id},
-                    {
-                        "$set": {
-                            "paymentStatus": "paid",
-                            "updatedAt": datetime.now(timezone.utc)
-                        }
-                    }
-                )
-                
-                # Update purchase
-                await presale_purchases.update_one(
-                    {"stripeSessionId": webhook_response.session_id},
-                    {
-                        "$set": {
-                            "paymentStatus": "paid",
-                            "updatedAt": datetime.now(timezone.utc)
-                        }
-                    }
-                )
-                
-                # Get purchase details for MLM commission distribution
-                purchase = await presale_purchases.find_one({"stripeSessionId": webhook_response.session_id})
-                if purchase:
-                    # Distribute MLM commissions
-                    await distribute_commissions(
-                        source_wallet=purchase["walletAddress"],
-                        net_amount=purchase["totalPrice"],
-                        event_type=EventType.PRESALE_PURCHASE.value,
-                        event_id=purchase.get("purchase_id", webhook_response.session_id)
-                    )
-                
-                # Legacy: Update old referral if applicable
-                if webhook_response.metadata and webhook_response.metadata.get("referralCode"):
-                    metadata = webhook_response.metadata
-                    token_amount = int(metadata.get("tokenAmount", 0))
-                    total_price = token_amount * TOKEN_PRICE
-                    
-                    await update_referral_stats(
-                        metadata.get("referralCode"),
-                        total_price,
-                        token_amount
-                    )
-        
-        return {"received": True}
-        
-    except Exception as e:
-        print(f"Webhook error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+    }
 
 
 @app.get("/api/referral/{wallet_address}", response_model=ReferralStats)
