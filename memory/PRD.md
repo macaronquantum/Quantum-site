@@ -5,6 +5,7 @@
 - [x] Balance Quantum on-chain via backend proxy (9,924,000 QTM)
 - [x] Balance SOL + conversion USD/EUR
 - [x] Prix Quantum = $0.20 (pre-TGE)
+- [x] Payment gateway: Card2Crypto (replaces Stripe) - USDC Polygon payout
 - [x] MLM 5 niveaux (L1=20%, L2=10%, L3=5%, L4=2.5%, L5=1%)
 - [x] Dashboard affiliation avec detail par niveau
 - [x] Notifications in-app auto
@@ -50,6 +51,7 @@ Cache TTL = 2 hours
 - [x] Wallet connect native: `Linking.openURL` opens Phantom app (not website) + URL listener for callback
 - [x] Unmatched Route fix: created `phantom-callback.tsx` route + fixed double `--` in redirect URL
 - [x] Pre-deploy polish: tab bar alignment, CTA glow effects, presale fallback price $0.20
+- [x] Card2Crypto integration: replaces Stripe for card payments. Payout wallet: 0xA4014c46D420409b5Ef2eb9862a64F74690863C7
 
 ## Testing: 39/39 backend PASS, frontend verified, all APIs returning correct data
 ## Last Updated: 2026-02-15
