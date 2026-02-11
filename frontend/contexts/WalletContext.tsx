@@ -249,21 +249,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     
     console.log('[Wallet] Params OK, checking for keypair...');
     
-    // SOLUTION: Get keypair from URL first (survives browser storage clearing)
-    let keypairJson = params.get('kp');
+    // SOLUTION: Get keypair from URL hash fragment first (survives Phantom redirect)
+    // Hash format: #kp=ENCODED_KEYPAIR
+    let keypairJson: string | null = null;
     
-    if (keypairJson) {
+    const hash = window.location.hash;
+    if (hash && hash.includes('kp=')) {
       try {
-        // Decode from URL-safe base64
-        keypairJson = decodeURIComponent(keypairJson);
-        console.log('[Wallet] Keypair found in URL parameter!');
+        // Parse hash fragment (remove leading #)
+        const hashParams = new URLSearchParams(hash.substring(1));
+        const kpFromHash = hashParams.get('kp');
+        if (kpFromHash) {
+          keypairJson = decodeURIComponent(kpFromHash);
+          console.log('[Wallet] Keypair found in URL hash fragment!');
+        }
       } catch (e) {
-        console.log('[Wallet] Failed to decode keypair from URL');
-        keypairJson = null;
+        console.log('[Wallet] Failed to parse keypair from hash:', e);
       }
     }
     
-    // Fallback to storage if not in URL
+    // Fallback: check query params (in case hash didn't work)
+    if (!keypairJson) {
+      const kpFromQuery = params.get('kp');
+      if (kpFromQuery) {
+        try {
+          keypairJson = decodeURIComponent(kpFromQuery);
+          console.log('[Wallet] Keypair found in URL query parameter!');
+        } catch (e) {
+          console.log('[Wallet] Failed to decode keypair from query');
+        }
+      }
+    }
+    
+    // Fallback: check storage
     if (!keypairJson) {
       keypairJson = await getFromStorage(KEYPAIR_KEY);
       if (keypairJson) {
@@ -275,8 +293,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     window.history.replaceState({}, '', window.location.origin + window.location.pathname);
     
     if (!keypairJson) {
-      // Build detailed error
+      // Build detailed error with debug info
       let debugMsg = 'ERREUR CRITIQUE: Keypair introuvable!\n\n';
+      debugMsg += `URL reçue: ${url.substring(0, 100)}...\n`;
+      debugMsg += `Hash: ${hash || '(vide)'}\n\n`;
       debugMsg += 'État des storages:\n';
       
       if (typeof window !== 'undefined') {
