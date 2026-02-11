@@ -140,11 +140,7 @@ export default function PreSale() {
 
       if (response.data.success) {
         if (paymentMethod === 'card' && response.data.checkoutUrl) {
-          if (typeof window !== 'undefined') {
-            window.location.href = response.data.checkoutUrl;
-          } else {
-            Linking.openURL(response.data.checkoutUrl);
-          }
+          await Linking.openURL(response.data.checkoutUrl);
         } else if (paymentMethod === 'crypto' && response.data.solanaAddress) {
           const solAddr = response.data.solanaAddress;
           await platformCopy(solAddr);
