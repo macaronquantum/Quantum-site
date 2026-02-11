@@ -406,8 +406,8 @@ async def get_affiliate_stats(wallet: str, request: Request):
     # Get or create user
     user = await get_user_by_wallet(wallet)
     if not user:
-        # Auto-register user without referrer
-        register_response = await register_affiliate(UserCreate(wallet_public_key=wallet))
+        await register_affiliate(UserCreate(wallet_public_key=wallet))
+        user = await get_user_by_wallet(wallet)
     
     # Build referral link
     host = str(request.base_url).rstrip('/')
