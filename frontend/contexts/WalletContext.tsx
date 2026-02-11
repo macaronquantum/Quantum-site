@@ -156,23 +156,29 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
     
     const url = window.location.href;
+    console.log('[Wallet] Full URL on load:', url);
+    
     if (!url.includes('phantom_encryption_public_key') && !url.includes('errorCode')) {
+      console.log('[Wallet] No Phantom callback params in URL');
       return false;
     }
     
-    console.log('[Wallet] Processing Phantom callback...');
-    console.log('[Wallet] URL:', url.substring(0, 100) + '...');
+    console.log('[Wallet] ======= PROCESSING PHANTOM CALLBACK =======');
     
     const params = new URLSearchParams(window.location.search);
     
-    // Clean URL immediately
-    const cleanUrl = window.location.origin + window.location.pathname;
-    window.history.replaceState({}, '', cleanUrl);
+    // Log all params
+    console.log('[Wallet] phantom_encryption_public_key:', params.get('phantom_encryption_public_key')?.substring(0, 20) + '...');
+    console.log('[Wallet] nonce:', params.get('nonce')?.substring(0, 20) + '...');
+    console.log('[Wallet] data:', params.get('data')?.substring(0, 20) + '...');
+    console.log('[Wallet] errorCode:', params.get('errorCode'));
     
-    // Check for error
+    // Check for error BEFORE cleaning URL
     if (params.get('errorCode')) {
-      console.log('[Wallet] User cancelled');
+      console.log('[Wallet] Phantom returned error:', params.get('errorMessage'));
       setError(params.get('errorMessage') || 'Cancelled');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
       return false;
     }
     
@@ -181,48 +187,69 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const data = params.get('data');
     
     if (!phantomPubKey || !nonce || !data) {
-      console.log('[Wallet] Missing callback params');
+      console.log('[Wallet] ERROR: Missing required callback params');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
       return false;
     }
     
-    // Get keypair from storage - NOW ASYNC!
+    // Get keypair from storage BEFORE cleaning URL
+    console.log('[Wallet] Attempting to retrieve keypair from storage...');
     const keypairJson = await getFromStorage(KEYPAIR_KEY);
+    
+    // NOW clean URL
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
+    
     if (!keypairJson) {
-      console.log('[Wallet] ERROR: No keypair in storage after redirect');
+      console.log('[Wallet] ❌ CRITICAL ERROR: No keypair found in ANY storage!');
+      console.log('[Wallet] This means localStorage, sessionStorage, and AsyncStorage are all empty.');
+      console.log('[Wallet] The keypair was lost during the redirect to Phantom.');
       setError('Connection failed. Please try again.');
       return false;
     }
     
-    console.log('[Wallet] Keypair found, decrypting...');
+    console.log('[Wallet] ✓ Keypair found! Length:', keypairJson.length);
     
     try {
       await ensureCrypto();
+      console.log('[Wallet] Crypto loaded, starting decryption...');
       
       const keypair = JSON.parse(keypairJson);
+      console.log('[Wallet] Keypair parsed, pub length:', keypair.pub?.length, 'sec length:', keypair.sec?.length);
+      
       const secretKey = new Uint8Array(keypair.sec);
       
       const phantomBytes = bs58.decode(phantomPubKey);
       const nonceBytes = bs58.decode(nonce);
       const dataBytes = bs58.decode(data);
       
+      console.log('[Wallet] Decoded - phantom:', phantomBytes.length, 'nonce:', nonceBytes.length, 'data:', dataBytes.length);
+      
       const sharedSecret = nacl.box.before(phantomBytes, secretKey);
+      console.log('[Wallet] Shared secret computed');
+      
       const decrypted = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
       
       if (!decrypted) {
-        console.log('[Wallet] Decryption failed');
+        console.log('[Wallet] ❌ Decryption returned null - keypair mismatch!');
+        console.log('[Wallet] The stored keypair does not match what was sent to Phantom.');
         setError('Connection failed. Please try again.');
         return false;
       }
       
+      console.log('[Wallet] ✓ Decryption successful!');
       const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      console.log('[Wallet] Payload:', JSON.stringify(payload).substring(0, 100));
       
       // SUCCESS - persist publicKey
       await clearFromStorage(KEYPAIR_KEY);
       setWalletConnected(payload.public_key);
+      console.log('[Wallet] ======= CONNECTION COMPLETE =======');
       return true;
       
-    } catch (err) {
-      console.error('[Wallet] Callback error:', err);
+    } catch (err: any) {
+      console.error('[Wallet] ❌ Callback processing error:', err?.message || err);
+      console.error('[Wallet] Error stack:', err?.stack);
       setError('Connection failed. Please try again.');
       return false;
     }
