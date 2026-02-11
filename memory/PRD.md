@@ -6,12 +6,14 @@ Application Expo/React Native pour Quantum DAO avec:
 - Récupération des données on-chain (balance Quantum token, SOL, conversion USD/EUR)
 - Affichage des données sur les pages Portfolio, Profile après connexion
 - Prix Quantum token hardcodé à $2.50 USD (pré-TGE)
-- **Système d'affiliation multi-niveau (MLM) à 5 niveaux**
+- **Système d'affiliation multi-niveau (MLM) à 5 niveaux PROFESSIONNEL**
+- **Barre de progression presale avec objectif $2M**
+- **Système de notifications pour commissions**
 
 ## Target Users
 - Investisseurs crypto intéressés par le DAO Quantum
 - Utilisateurs de wallets Solana (principalement Phantom)
-- Affiliés souhaitant monétiser leur réseau
+- Affiliés souhaitant monétiser leur réseau MLM
 
 ## Core Requirements
 
@@ -37,26 +39,46 @@ Application Expo/React Native pour Quantum DAO avec:
 | **Total** | **38.5%**  |
 
 **Backend Features:**
-- User registration with unique referral codes
+- User registration with unique referral codes (QTMXXXXX format)
 - Automatic affiliate relation creation up to 5 levels
 - Commission tracking per event (pending/confirmed/paid)
 - Stats aggregation per level
 - Commission history with pagination
+- **NEW: Level transaction details (click to expand)**
+- **NEW: Notifications on commission received**
 
 **Frontend Features:**
 - Professional MLM dashboard
-- Referral code display with copy/share
+- Referral code display with copy/share (FIXED copy buttons)
 - Stats breakdown per level (referrals, commissions)
+- **NEW: Click on level → see detailed transactions (modal)**
 - Commission rate information card
 - Recent commissions list (expandable)
 
-### 4. UI/UX
+### 4. Presale Progress ✅ IMPLEMENTED
+- **Goal: $2,000,000 USD**
+- Progress bar with percentage
+- Total raised amount (manual backend entry)
+- Participants count
+- Remaining amount display
+- **Referral code input in form**
+- **URL parameter support: ?ref=CODE**
+
+### 5. Notification System ✅ IMPLEMENTED
+- Auto-notification when commission received
+- In-app notification list (expand/collapse)
+- Mark as read functionality
+- Clear all notifications
+- Badge with unread count
+- Push notification toggle (ready for Expo Push API)
+
+### 6. UI/UX
 - Landing page avec "Access Platform"
 - Portfolio avec état connecté/déconnecté
-- Profile avec paramètres utilisateur
+- Profile avec paramètres utilisateur et notifications
 - Opportunities avec filtres et votes
-- Pre-Sale form avec validation
-- **Referral dashboard MLM professionnel**
+- Pre-Sale form avec validation et barre de progression
+- Referral dashboard MLM professionnel
 
 ## Technical Architecture
 - **Frontend**: React Native + Expo Router
@@ -69,29 +91,46 @@ Application Expo/React Native pour Quantum DAO avec:
 - `/app/frontend/contexts/WalletContext.tsx` - Logique wallet
 - `/app/frontend/utils/solanaRpc.ts` - Appels RPC Solana
 - `/app/frontend/app/(tabs)/portfolio.tsx` - Page Portfolio
-- `/app/frontend/app/(tabs)/profile.tsx` - Page Profile
-- `/app/frontend/app/(tabs)/affiliation.tsx` - Dashboard MLM
-- `/app/backend/server.py` - API backend avec système MLM
+- `/app/frontend/app/(tabs)/profile.tsx` - Page Profile + Notifications
+- `/app/frontend/app/(tabs)/affiliation.tsx` - Dashboard MLM + Level Details
+- `/app/frontend/app/(tabs)/presale.tsx` - Presale + Progress Bar
+- `/app/backend/server.py` - API backend complète
 
 ## API Endpoints
 
 ### MLM Affiliate Endpoints
-- `POST /api/affiliate/register` - Enregistrer utilisateur avec code parrain optionnel
-- `GET /api/affiliate/{wallet}/stats` - Stats complètes par niveau (5 niveaux)
+- `POST /api/affiliate/register` - Enregistrer utilisateur avec code parrain
+- `GET /api/affiliate/{wallet}/stats` - Stats complètes par niveau
 - `GET /api/affiliate/{wallet}/commissions` - Historique des commissions
-- `GET /api/affiliate/{wallet}/tree` - Arbre d'affiliation (downline)
-- `POST /api/affiliate/commission/distribute` - Distribuer commissions (interne)
-- `GET /api/affiliate/config` - Configuration des taux de commission
+- `GET /api/affiliate/{wallet}/tree` - Arbre d'affiliation
+- `GET /api/affiliate/{wallet}/level/{level}/transactions` - **NEW: Transactions par niveau**
+- `POST /api/affiliate/commission/distribute` - Distribuer commissions
+- `GET /api/affiliate/config` - Configuration des taux
+
+### Notification Endpoints
+- `GET /api/notifications/{wallet}` - Liste des notifications
+- `POST /api/notifications/{wallet}/mark-read` - Marquer comme lu
+- `DELETE /api/notifications/{wallet}/clear` - Effacer tout
+- `POST /api/notifications/register-push-token` - Enregistrer token push
+
+### Presale Endpoints
+- `GET /api/presale/progress` - Progression presale (public)
+- `PUT /api/presale/config` - Modifier config (admin)
+- `POST /api/presale/increment-raised` - Incrémenter total (interne)
+- `POST /api/presale/purchase` - Achat presale (avec referral code)
 
 ### MongoDB Collections
 - `users` - Utilisateurs avec referral_code et referrer_id
 - `affiliate_relations` - Relations niveau 1-5 entre users
 - `affiliate_commissions` - Log de toutes les commissions
+- `notifications` - Notifications utilisateurs
+- `push_tokens` - Tokens push Expo
+- `presale_config` - Configuration presale (goal, total_raised)
 
 ## What's Implemented ✅
 - [x] Landing page avec navigation
-- [x] Connexion wallet Phantom (web popup + mobile auth session)
-- [x] Lazy-loading tweetnacl/bs58 (fix PRNG error)
+- [x] Connexion wallet Phantom (web popup + mobile)
+- [x] Lazy-loading tweetnacl/bs58
 - [x] Récupération balance Quantum on-chain
 - [x] Récupération balance SOL
 - [x] Conversion USD/EUR temps réel
@@ -99,34 +138,39 @@ Application Expo/React Native pour Quantum DAO avec:
 - [x] Formulaire Pre-Sale avec validation
 - [x] Page Opportunities avec filtres
 - [x] Navigation par onglets
-- [x] **Système MLM 5 niveaux complet (backend + frontend)**
+- [x] **Système MLM 5 niveaux complet**
 - [x] **Dashboard affiliation professionnel**
 - [x] **Distribution automatique des commissions**
+- [x] **Detail transactions par niveau (modal)**
+- [x] **Barre de progression presale ($2M goal)**
+- [x] **Input code parrainage dans presale**
+- [x] **URL param ?ref=CODE supporté**
+- [x] **Système notifications complet**
+- [x] **Copy buttons fonctionnels**
 
 ## Mocked/Hardcoded
-- **QUANTUM_PRICE_USD = $2.50** (pré-TGE, hardcodé dans solanaRpc.ts)
+- **QUANTUM_PRICE_USD = $2.50** (pré-TGE, hardcodé)
+- **Presale total_raised** (entrée manuelle backend)
 
 ## Backlog
 
-### P0 - À Vérifier
-- [ ] Vérifier affichage balance Quantum token (user mentionne problème)
-- [ ] Corriger l'adresse du mint si nécessaire
+### P0 - À Vérifier avec User
+- [ ] Vérifier affichage balance Quantum token (user mentionne problème - besoin adresse wallet)
 
 ### P1 - Prochaines Tâches
-- [ ] Dashboard admin externe pour gestion affiliés
-- [ ] Gestion des paiements de commissions
+- [ ] Dashboard admin externe pour gestion affiliés/paiements
+- [ ] Intégration Expo Push Notifications natives
 - [ ] Ajustements manuels de commission (admin)
 
 ### P2 - Future
-- [ ] Redesign barre de navigation inférieure (style "delta")
-- [ ] Révision générale UI/UX (page settings)
 - [ ] Fix Expo Go preview (CORS issue)
-- [ ] Arbre visuel d'affiliation (tree view)
+- [ ] Arbre visuel d'affiliation (tree view graphique)
+- [ ] Redesign barre de navigation inférieure (style "delta")
 
 ## Testing Status
-- Backend MLM: 100% pass (15/15 tests - iteration_2.json)
-- Frontend MLM: 100% pass (UI verified)
+- Backend: 100% pass (35/35 tests - iteration_3.json)
+- Frontend: 100% pass (all features verified)
 - Wallet flow: Testé via logs console
 
 ## Last Updated
-2026-02-11 - Système MLM multi-niveau implémenté et testé
+2026-02-11 - Améliorations MLM: transactions par niveau, notifications, barre progression presale, referral code dans presale
