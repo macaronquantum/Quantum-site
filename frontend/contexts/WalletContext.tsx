@@ -35,19 +35,44 @@ async function ensureCrypto(): Promise<void> {
   }
 }
 
+// API URL
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
 // Storage keys
 const WALLET_KEY = 'quantum_wallet';
-const KEYPAIR_KEY = 'quantum_keypair';
 
-// Save to all storage
-async function saveToStorage(key: string, value: string): Promise<void> {
-  const logs: string[] = [];
-  logs.push(`[Storage] Saving ${key}...`);
-  
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try { 
-      localStorage.setItem(key, value); 
-      logs.push('[Storage] Saved to localStorage');
+// Simple storage helpers
+async function saveWallet(address: string): Promise<void> {
+  try {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(WALLET_KEY, address);
+    }
+    await AsyncStorage.setItem(WALLET_KEY, address);
+  } catch (e) {
+    console.log('[Storage] Save error:', e);
+  }
+}
+
+async function getWallet(): Promise<string | null> {
+  try {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      const v = localStorage.getItem(WALLET_KEY);
+      if (v) return v;
+    }
+    return await AsyncStorage.getItem(WALLET_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function clearWallet(): Promise<void> {
+  try {
+    if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem(WALLET_KEY);
+    }
+    await AsyncStorage.removeItem(WALLET_KEY);
+  } catch (e) {}
+}
     } catch (e: any) { 
       logs.push(`[Storage] localStorage FAILED: ${e?.message}`);
     }
