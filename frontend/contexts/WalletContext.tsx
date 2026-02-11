@@ -304,7 +304,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
     
     // HARD GUARD: Check storage
-    const savedAddr = getFromStorage(WALLET_KEY);
+    const savedAddr = await getFromStorage(WALLET_KEY);
     if (savedAddr) {
       console.log('[Wallet] Found in storage, using that');
       setWalletConnected(savedAddr);
@@ -346,13 +346,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       await ensureCrypto();
       
       const kp = nacl.box.keyPair();
-      saveToStorage(KEYPAIR_KEY, JSON.stringify({
+      await saveToStorage(KEYPAIR_KEY, JSON.stringify({
         pub: Array.from(kp.publicKey),
         sec: Array.from(kp.secretKey),
       }));
       
       const dappPubKey = bs58.encode(kp.publicKey);
       const redirectUrl = window.location.origin + window.location.pathname;
+      
+      console.log('[Wallet] Keypair stored, redirecting...');
+      console.log('[Wallet] Redirect URL:', redirectUrl);
       
       const params = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
@@ -361,7 +364,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         redirect_link: redirectUrl,
       });
       
-      console.log('[Wallet] Redirecting to Phantom...');
+      console.log('[Wallet] Opening Phantom...');
       window.location.href = `https://phantom.app/ul/v1/connect?${params}`;
       // Don't reset connectCalled - page will redirect
       
