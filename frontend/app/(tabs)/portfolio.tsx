@@ -474,6 +474,8 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md, padding: SPACING.md,
   },
   noTokenText: { flex: 1, fontSize: FONT_SIZES.sm, color: COLORS.warning, lineHeight: 18 },
+  solscanRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: SPACING.sm, marginTop: SPACING.xs },
+  solscanText: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, textDecorationLine: 'underline' },
   infoCard: { backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.base, paddingVertical: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SPACING.md },
   infoLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
