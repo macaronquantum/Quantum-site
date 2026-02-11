@@ -14,24 +14,24 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#0F0F0F',
+          backgroundColor: '#0A0A0A',
           borderTopWidth: 0.5,
           borderTopColor: 'rgba(255,255,255,0.06)',
-          height: 56 + bottomPadding,
+          height: 60 + bottomPadding,
           paddingBottom: bottomPadding,
-          paddingTop: 6,
+          paddingTop: 8,
           position: 'absolute',
         },
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: '#444444',
+        tabBarInactiveTintColor: '#555555',
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '600',
-          letterSpacing: 0.2,
-          marginTop: 1,
+          letterSpacing: 0.3,
+          marginTop: 2,
         },
         tabBarIconStyle: {
-          marginTop: 2,
+          marginTop: 0,
         },
       }}
     >
