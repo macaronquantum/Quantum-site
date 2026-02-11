@@ -59,6 +59,7 @@ Application Expo/React Native pour Quantum DAO avec:
 ## Key Files
 - `/app/frontend/contexts/WalletContext.tsx` - Wallet logic + balance fetching via backend proxy
 - `/app/frontend/utils/solanaRpc.ts` - Solana RPC utils + getBalancesViaBackend()
+- `/app/frontend/utils/platform.ts` - Cross-platform alert/clipboard utils (web+native)
 - `/app/frontend/app/(tabs)/portfolio.tsx` - Portfolio page with CTA banner
 - `/app/frontend/app/(tabs)/profile.tsx` - Profile + Notifications
 - `/app/frontend/app/(tabs)/affiliation.tsx` - MLM Dashboard
@@ -89,10 +90,11 @@ Application Expo/React Native pour Quantum DAO avec:
 - [x] Dashboard affiliation professionnel avec detail par niveau
 - [x] Distribution automatique des commissions
 - [x] Systeme notifications complet
-- [x] Copy buttons fonctionnels (tous: portfolio, affiliation, profile, presale)
+- [x] Copy buttons fonctionnels (cross-platform: web + native)
 - [x] Barre de progression presale ($2M goal)
 - [x] CTA marketing banner
 - [x] Backend proxy Solana balance (avoid CORS)
+- [x] Cross-platform alert/clipboard utility (platform.ts)
 
 ## Mocked/Hardcoded
 - QUANTUM_PRICE_USD = $2.50 (pre-TGE, hardcode)
@@ -108,12 +110,14 @@ Application Expo/React Native pour Quantum DAO avec:
 ### P2 - Future
 - [ ] Arbre visuel d'affiliation (tree view graphique)
 - [ ] Redesign barre de navigation inferieure
+- [ ] Refactoring server.py en modules
 
 ## Testing Status
 - Backend: 100% pass (39/39 tests - iteration_5.json)
-- Frontend: 100% pass (all pages verified)
+- Frontend: 100% pass (all pages verified, bundle builds without errors)
 - MLM 5-level chain: Verified with correct rates
 - Solana balance proxy: Verified with real mainnet data (9,924,000 QTM)
+- Cross-platform copy: Uses navigator.clipboard on web, expo-clipboard on native
 
 ## Last Updated
-2026-02-11 - Fixed Quantum token balance via backend proxy, fixed all copy buttons, verified 5-level MLM commission chain
+2026-02-11 - Fixed web-specific issues: replaced Alert.alert with cross-platform showAlert, replaced expo-clipboard with navigator.clipboard for web, added platform.ts utility, rebuilt Metro cache
