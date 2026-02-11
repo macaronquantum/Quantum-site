@@ -314,7 +314,268 @@ async def get_wallet_session(session_id: str):
     return WalletSessionGet(keypair=session["keypair"])
 
 
-# ============== MODELS ==============
+# ============== MLM AFFILIATE ENDPOINTS ==============
+
+@app.post("/api/affiliate/register", response_model=UserResponse)
+async def register_affiliate(user_data: UserCreate):
+    """
+    Register a new user in the affiliate system.
+    If a referral code is provided, create the affiliate relationships.
+    """
+    wallet = user_data.wallet_public_key
+    
+    # Check if user already exists
+    existing_user = await get_user_by_wallet(wallet)
+    if existing_user:
+        return UserResponse(
+            wallet_public_key=existing_user["wallet_public_key"],
+            referral_code=existing_user["referral_code"],
+            referrer_id=existing_user.get("referrer_id"),
+            created_at=existing_user["created_at"].isoformat() if isinstance(existing_user["created_at"], datetime) else existing_user["created_at"]
+        )
+    
+    # Generate unique referral code
+    referral_code = generate_unique_referral_code()
+    while await get_user_by_referral_code(referral_code):
+        referral_code = generate_unique_referral_code()
+    
+    referrer_wallet = None
+    
+    # If referral code used, find the referrer
+    if user_data.referral_code_used:
+        referrer = await get_user_by_referral_code(user_data.referral_code_used)
+        if referrer:
+            referrer_wallet = referrer["wallet_public_key"]
+    
+    # Create user
+    now = datetime.now(timezone.utc)
+    user_doc = {
+        "wallet_public_key": wallet,
+        "referral_code": referral_code,
+        "referrer_id": referrer_wallet,
+        "created_at": now
+    }
+    
+    await users_collection.insert_one(user_doc)
+    
+    # Create affiliate relations if there's a referrer
+    if referrer_wallet:
+        await create_affiliate_relations(wallet, referrer_wallet)
+    
+    return UserResponse(
+        wallet_public_key=wallet,
+        referral_code=referral_code,
+        referrer_id=referrer_wallet,
+        created_at=now.isoformat()
+    )
+
+
+@app.get("/api/affiliate/{wallet}/stats", response_model=AffiliateStatsResponse)
+async def get_affiliate_stats(wallet: str, request: Request):
+    """Get comprehensive affiliate statistics for a user"""
+    
+    # Get or create user
+    user = await get_user_by_wallet(wallet)
+    if not user:
+        # Auto-register user without referrer
+        register_response = await register_affiliate(UserCreate(wallet_public_key=wallet))
+        user = await get_user_by_wallet(wallet)
+    
+    # Build referral link
+    host = str(request.base_url).rstrip('/')
+    referral_link = f"{host}/presale?ref={user['referral_code']}"
+    
+    # Calculate stats per level
+    levels_stats = []
+    total_referrals = 0
+    total_earnings = 0.0
+    pending_earnings = 0.0
+    confirmed_earnings = 0.0
+    paid_earnings = 0.0
+    
+    for level in range(1, MAX_AFFILIATE_LEVEL + 1):
+        # Count referrals at this level
+        referral_count = await affiliate_relations.count_documents({
+            "ancestor_id": wallet,
+            "level": level
+        })
+        total_referrals += referral_count
+        
+        # Get commissions at this level
+        level_commissions = await affiliate_commissions.find({
+            "beneficiary_user_id": wallet,
+            "level": level
+        }, {"_id": 0}).to_list(length=10000)
+        
+        level_total = sum(c["amount"] for c in level_commissions)
+        level_pending = sum(c["amount"] for c in level_commissions if c["status"] == CommissionStatus.PENDING.value)
+        level_confirmed = sum(c["amount"] for c in level_commissions if c["status"] == CommissionStatus.CONFIRMED.value)
+        level_paid = sum(c["amount"] for c in level_commissions if c["status"] == CommissionStatus.PAID.value)
+        
+        total_earnings += level_total
+        pending_earnings += level_pending
+        confirmed_earnings += level_confirmed
+        paid_earnings += level_paid
+        
+        levels_stats.append(LevelStats(
+            level=level,
+            referral_count=referral_count,
+            total_commission=level_total,
+            pending_commission=level_pending,
+            confirmed_commission=level_confirmed,
+            paid_commission=level_paid
+        ))
+    
+    return AffiliateStatsResponse(
+        wallet_public_key=wallet,
+        referral_code=user["referral_code"],
+        referral_link=referral_link,
+        total_referrals=total_referrals,
+        total_earnings=total_earnings,
+        pending_earnings=pending_earnings,
+        confirmed_earnings=confirmed_earnings,
+        paid_earnings=paid_earnings,
+        levels=levels_stats
+    )
+
+
+@app.get("/api/affiliate/{wallet}/commissions", response_model=CommissionHistoryResponse)
+async def get_commission_history(wallet: str, limit: int = 50, offset: int = 0):
+    """Get commission history for a user"""
+    
+    # Get total count
+    total_count = await affiliate_commissions.count_documents({"beneficiary_user_id": wallet})
+    
+    # Get commissions with pagination
+    commissions_cursor = affiliate_commissions.find(
+        {"beneficiary_user_id": wallet},
+        {"_id": 0}
+    ).sort("created_at", -1).skip(offset).limit(limit)
+    
+    commissions = await commissions_cursor.to_list(length=limit)
+    
+    commission_entries = []
+    for c in commissions:
+        commission_entries.append(CommissionEntry(
+            id=c.get("commission_id", str(uuid.uuid4())),
+            source_user_wallet=c["source_user_id"],
+            level=c["level"],
+            percentage=c["percentage"],
+            amount=c["amount"],
+            event_type=c["event_type"],
+            event_id=c["event_id"],
+            status=c["status"],
+            created_at=c["created_at"].isoformat() if isinstance(c["created_at"], datetime) else str(c["created_at"])
+        ))
+    
+    return CommissionHistoryResponse(
+        wallet_public_key=wallet,
+        commissions=commission_entries,
+        total_count=total_count
+    )
+
+
+@app.get("/api/affiliate/{wallet}/tree", response_model=AffiliateTreeResponse)
+async def get_affiliate_tree(wallet: str, max_depth: int = 2):
+    """
+    Get the affiliate tree for a user (their downline).
+    max_depth limits how deep to fetch (default 2 levels for performance).
+    """
+    
+    async def build_tree_node(user_wallet: str, current_depth: int) -> AffiliateTreeNode:
+        user = await get_user_by_wallet(user_wallet)
+        if not user:
+            return None
+        
+        # Get direct referrals (level 1)
+        direct_referrals = await affiliate_relations.find({
+            "ancestor_id": user_wallet,
+            "level": 1
+        }, {"_id": 0}).to_list(length=1000)
+        
+        # Calculate total generated revenue (sum of commissions from this user's network)
+        total_generated = 0.0
+        network_commissions = await affiliate_commissions.find({
+            "beneficiary_user_id": user_wallet
+        }, {"_id": 0, "amount": 1}).to_list(length=10000)
+        total_generated = sum(c["amount"] for c in network_commissions)
+        
+        children = []
+        if current_depth < max_depth:
+            for ref in direct_referrals:
+                child_node = await build_tree_node(ref["user_id"], current_depth + 1)
+                if child_node:
+                    children.append(child_node)
+        
+        return AffiliateTreeNode(
+            wallet_public_key=user_wallet,
+            referral_code=user["referral_code"],
+            level=current_depth,
+            direct_referrals=len(direct_referrals),
+            total_generated=total_generated,
+            children=children
+        )
+    
+    # Get direct referrals of the wallet
+    direct_refs = await affiliate_relations.find({
+        "ancestor_id": wallet,
+        "level": 1
+    }, {"_id": 0}).to_list(length=1000)
+    
+    tree = []
+    for ref in direct_refs:
+        node = await build_tree_node(ref["user_id"], 1)
+        if node:
+            tree.append(node)
+    
+    # Calculate total network size
+    total_network = await affiliate_relations.count_documents({"ancestor_id": wallet})
+    
+    return AffiliateTreeResponse(
+        wallet_public_key=wallet,
+        tree=tree,
+        total_network_size=total_network
+    )
+
+
+@app.post("/api/affiliate/commission/distribute", response_model=CreateCommissionResponse)
+async def create_commission(data: CreateCommissionRequest):
+    """
+    Distribute commissions when a revenue event occurs.
+    This should be called internally when a purchase is completed.
+    """
+    try:
+        commissions_created, total_distributed = await distribute_commissions(
+            source_wallet=data.source_wallet,
+            net_amount=data.amount,
+            event_type=data.event_type,
+            event_id=data.event_id
+        )
+        
+        return CreateCommissionResponse(
+            success=True,
+            commissions_created=commissions_created,
+            total_distributed=total_distributed,
+            message=f"Distributed ${total_distributed:.2f} across {commissions_created} beneficiaries"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/affiliate/config")
+async def get_affiliate_config():
+    """Get affiliate system configuration (commission rates per level)"""
+    return {
+        "max_levels": MAX_AFFILIATE_LEVEL,
+        "commission_rates": {
+            str(k): {"percentage": v * 100, "decimal": v} 
+            for k, v in COMMISSION_RATES.items()
+        },
+        "total_commission_percentage": sum(COMMISSION_RATES.values()) * 100
+    }
+
+
+# ============== LEGACY MODELS (for backward compatibility) ==============
 
 class PreSalePurchaseRequest(BaseModel):
     firstName: str
