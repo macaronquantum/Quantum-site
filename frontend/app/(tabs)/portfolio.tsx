@@ -140,7 +140,7 @@ export default function Portfolio() {
               <View style={styles.debugErrorCard}>
                 <Ionicons name="bug" size={24} color={COLORS.error} />
                 <View style={styles.errorContent}>
-                  <Text style={styles.debugErrorTitle}>❌ ERREUR DE CONNEXION</Text>
+                  <Text style={styles.debugErrorTitle}>ERREUR DE CONNEXION</Text>
                   <Text style={styles.debugErrorText}>{error}</Text>
                   <TouchableOpacity 
                     style={styles.retryButton} 
@@ -150,8 +150,6 @@ export default function Portfolio() {
                     <Text style={styles.retryButtonText}>Fermer et réessayer</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            )}
               </View>
             )}
 
