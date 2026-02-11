@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Platform,
   Linking,
   ActivityIndicator,
@@ -21,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
-import * as Clipboard from 'expo-clipboard';
+import { showAlert, copyToClipboard as platformCopy } from '../../utils/platform';
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const MIN_PURCHASE = 100;
