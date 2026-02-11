@@ -137,12 +137,21 @@ export default function Portfolio() {
             )}
 
             {error && error !== 'NO_WALLET' && error !== 'PHANTOM_OPENED' && (
-              <View style={styles.errorCard}>
-                <Ionicons name="close-circle" size={20} color={COLORS.error} />
+              <View style={styles.debugErrorCard}>
+                <Ionicons name="bug" size={24} color={COLORS.error} />
                 <View style={styles.errorContent}>
-                  <Text style={styles.errorTitle}>Connection Error</Text>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.debugErrorTitle}>❌ ERREUR DE CONNEXION</Text>
+                  <Text style={styles.debugErrorText}>{error}</Text>
+                  <TouchableOpacity 
+                    style={styles.retryButton} 
+                    onPress={() => { clearError(); }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.retryButtonText}>Fermer et réessayer</Text>
+                  </TouchableOpacity>
                 </View>
+              </View>
+            )}
               </View>
             )}
 
