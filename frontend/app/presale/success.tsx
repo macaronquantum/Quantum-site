@@ -75,7 +75,7 @@ export default function PreSaleSuccess() {
               </View>
               <View style={styles.detailRow}>
                 <Text style={styles.detailLabel}>Amount Paid:</Text>
-                <Text style={styles.detailValue}>${(paymentData.amount_total / 100).toFixed(2)}</Text>
+                <Text style={styles.detailValue}>${paymentData.amount_total?.toFixed(2)}</Text>
               </View>
             </View>
           )}
