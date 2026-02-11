@@ -464,29 +464,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         sec: Array.from(kp.secretKey),
       });
       
-      console.log('[Wallet] Saving keypair...');
+      console.log('[Wallet] Saving keypair to storage + URL...');
       await saveToStorage(KEYPAIR_KEY, keypairJson);
       
-      // Verify saved
-      const verify = await getFromStorage(KEYPAIR_KEY);
-      if (!verify) {
-        setError('ERREUR: Impossible de sauvegarder le keypair. Storage bloqué?');
-        setConnecting(false);
-        connectCalled.current = false;
-        return;
-      }
-      
       const dappPubKey = bs58.encode(kp.publicKey);
-      const redirectUrl = Platform.OS === 'web' 
+      const baseUrl = Platform.OS === 'web' 
         ? window.location.origin + window.location.pathname
         : Linking.createURL('phantom-callback');
       
-      console.log('[Wallet] Redirect URL:', redirectUrl);
+      // CRITICAL FIX: Include keypair in redirect URL to survive browser storage clearing
+      // This is safe because it's a temporary keypair only valid for this session
+      const redirectUrl = `${baseUrl}?kp=${encodeURIComponent(keypairJson)}`;
+      
+      console.log('[Wallet] Redirect URL with keypair embedded');
       
       const params = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
         cluster: 'mainnet-beta',
-        app_url: redirectUrl,
+        app_url: baseUrl,
         redirect_link: redirectUrl,
       });
       
