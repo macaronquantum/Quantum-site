@@ -5,8 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Linking,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,28 +12,13 @@ import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../con
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SOLSCAN_TOKEN_URL } from '../utils/solanaRpc';
 
 export default function Index() {
   const router = useRouter();
-
-  const openSolscan = () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.open(SOLSCAN_TOKEN_URL, '_blank');
-    } else {
-      Linking.openURL(SOLSCAN_TOKEN_URL);
-    }
-  };
   
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="light" />
-
-      {/* Solscan link - top right */}
-      <TouchableOpacity style={styles.solscanLink} onPress={openSolscan} activeOpacity={0.7}>
-        <Ionicons name="open-outline" size={13} color={COLORS.textTertiary} />
-        <Text style={styles.solscanText}>Voir sur Solscan</Text>
-      </TouchableOpacity>
       
       {/* Center content area */}
       <View style={styles.centerSection}>
@@ -210,20 +193,5 @@ const styles = StyleSheet.create({
     color: COLORS.textTertiary,
     textAlign: 'center',
     marginTop: SPACING.md,
-  },
-  solscanLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    alignSelf: 'center',
-    marginTop: SPACING.sm,
-  },
-  solscanText: {
-    fontSize: FONT_SIZES.xs,
-    color: COLORS.textTertiary,
-    textDecorationLine: 'underline',
   },
 });
