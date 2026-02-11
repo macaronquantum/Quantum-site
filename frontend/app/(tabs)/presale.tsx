@@ -19,16 +19,31 @@ import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams } from 'expo-router';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 const MIN_PURCHASE = 100;
+
+interface PresaleProgress {
+  total_raised: number;
+  goal: number;
+  progress_percentage: number;
+  remaining: number;
+  participants: number;
+  is_active: boolean;
+}
 
 export default function PreSale() {
   const { address } = useWallet();
+  const params = useLocalSearchParams();
   const [config, setConfig] = useState<any>(null);
+  const [presaleProgress, setPresaleProgress] = useState<PresaleProgress | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Get referral code from URL params
+  const urlReferralCode = params.ref as string || '';
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -36,12 +51,14 @@ export default function PreSale() {
     email: '',
     walletAddress: address || '',
     tokenAmount: '',
+    referralCode: urlReferralCode,
   });
 
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'crypto'>('card');
 
   useEffect(() => {
     fetchConfig();
+    fetchPresaleProgress();
   }, []);
 
   useEffect(() => {
@@ -51,12 +68,28 @@ export default function PreSale() {
     }
   }, [address]);
 
+  // Update referral code if URL param changes
+  useEffect(() => {
+    if (urlReferralCode) {
+      setFormData((prev) => ({ ...prev, referralCode: urlReferralCode }));
+    }
+  }, [urlReferralCode]);
+
   const fetchConfig = async () => {
     try {
       const response = await axios.get(`${BACKEND_URL}/api/config`);
       setConfig(response.data);
     } catch (error) {
       console.error('Error fetching config:', error);
+    }
+  };
+
+  const fetchPresaleProgress = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/presale/progress`);
+      setPresaleProgress(response.data);
+    } catch (error) {
+      console.error('Error fetching presale progress:', error);
     }
   };
 
@@ -102,6 +135,7 @@ export default function PreSale() {
         walletAddress: formData.walletAddress,
         tokenAmount: parseInt(formData.tokenAmount),
         paymentMethod: paymentMethod,
+        referralCode: formData.referralCode || undefined,
         hostUrl: hostUrl,
       };
 
@@ -123,7 +157,7 @@ export default function PreSale() {
               { text: 'OK' },
             ]
           );
-          setFormData({ firstName: '', lastName: '', email: '', walletAddress: address || '', tokenAmount: '' });
+          setFormData({ firstName: '', lastName: '', email: '', walletAddress: address || '', tokenAmount: '', referralCode: '' });
         }
       }
     } catch (error: any) {
@@ -131,6 +165,15 @@ export default function PreSale() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(2)}M`;
+    } else if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`;
+    }
+    return `$${value.toFixed(0)}`;
   };
 
   return (
@@ -151,6 +194,40 @@ export default function PreSale() {
             <Text style={styles.headerTitle}>QUANTUM Pre-Sale</Text>
             <Text style={styles.headerSubtitle}>Secure early allocation at exclusive pricing</Text>
           </View>
+
+          {/* Presale Progress Card */}
+          {presaleProgress && (
+            <View style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressTitle}>Progression de la Levée</Text>
+                <View style={styles.participantsBadge}>
+                  <Ionicons name="people" size={14} color={COLORS.primary} />
+                  <Text style={styles.participantsText}>{presaleProgress.participants} participants</Text>
+                </View>
+              </View>
+              
+              <View style={styles.progressAmounts}>
+                <Text style={styles.progressRaised}>{formatCurrency(presaleProgress.total_raised)}</Text>
+                <Text style={styles.progressGoal}>/ {formatCurrency(presaleProgress.goal)}</Text>
+              </View>
+              
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressBarBg}>
+                  <LinearGradient
+                    colors={[COLORS.primary, COLORS.primaryDark]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.progressBarFill, { width: `${Math.min(presaleProgress.progress_percentage, 100)}%` }]}
+                  />
+                </View>
+              </View>
+              
+              <View style={styles.progressStats}>
+                <Text style={styles.progressPercentage}>{presaleProgress.progress_percentage.toFixed(1)}%</Text>
+                <Text style={styles.progressRemaining}>Reste: {formatCurrency(presaleProgress.remaining)}</Text>
+              </View>
+            </View>
+          )}
 
           {/* Info Cards */}
           <View style={styles.infoGrid}>
@@ -232,6 +309,27 @@ export default function PreSale() {
               {errors.tokenAmount ? <Text style={styles.errorText}>{errors.tokenAmount}</Text> : null}
             </View>
 
+            {/* Referral Code Input */}
+            <View style={styles.inputGroup}>
+              <View style={styles.inputLabelRow}>
+                <Ionicons name="gift-outline" size={16} color={COLORS.primary} />
+                <Text style={[styles.inputLabel, { marginBottom: 0 }]}>Code Parrainage</Text>
+              </View>
+              <TextInput
+                style={[styles.input, styles.inputMono]}
+                value={formData.referralCode}
+                onChangeText={(t) => updateField('referralCode', t.toUpperCase())}
+                placeholder="QTMXXXXX (optionnel)"
+                placeholderTextColor={COLORS.textTertiary}
+                autoCapitalize="characters"
+              />
+              {formData.referralCode ? (
+                <Text style={styles.referralHint}>
+                  Code parrainage appliqué
+                </Text>
+              ) : null}
+            </View>
+
             {formData.tokenAmount && !isNaN(totalPrice) && totalPrice > 0 ? (
               <View style={styles.totalCard}>
                 <Text style={styles.totalLabel}>Total</Text>
@@ -308,6 +406,84 @@ const styles = StyleSheet.create({
   headerLogo: { width: 48, height: 48 },
   headerTitle: { fontSize: FONT_SIZES.xxl, fontWeight: FONT_WEIGHTS.bold, color: COLORS.textPrimary, marginBottom: SPACING.xs },
   headerSubtitle: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary, textAlign: 'center' },
+  
+  // Progress Card
+  progressCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+    marginBottom: SPACING.xl,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  progressTitle: {
+    fontSize: FONT_SIZES.md,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
+  },
+  participantsBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: `${COLORS.primary}15`,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  participantsText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.primary,
+    fontWeight: FONT_WEIGHTS.medium,
+  },
+  progressAmounts: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  progressRaised: {
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.primary,
+  },
+  progressGoal: {
+    fontSize: FONT_SIZES.md,
+    color: COLORS.textSecondary,
+  },
+  progressBarContainer: {
+    marginBottom: SPACING.md,
+  },
+  progressBarBg: {
+    height: 12,
+    backgroundColor: COLORS.surfaceElevated,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  progressStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressPercentage: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.primary,
+  },
+  progressRemaining: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  
   infoGrid: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.xl },
   infoCard: { flex: 1, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.lg, padding: SPACING.base, borderWidth: 1, borderColor: COLORS.border },
   infoLabel: { fontSize: FONT_SIZES.xs, color: COLORS.textSecondary, marginBottom: SPACING.xs },
@@ -316,6 +492,12 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: FONT_SIZES.lg, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary, marginBottom: SPACING.base },
   inputGroup: { marginBottom: SPACING.base },
   inputLabel: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.medium, color: COLORS.textSecondary, marginBottom: SPACING.sm },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
   input: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -328,6 +510,11 @@ const styles = StyleSheet.create({
   inputError: { borderColor: COLORS.error },
   inputMono: { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   errorText: { fontSize: FONT_SIZES.xs, color: COLORS.error, marginTop: 4 },
+  referralHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.success,
+    marginTop: 4,
+  },
   totalCard: {
     backgroundColor: COLORS.surfaceElevated,
     borderWidth: 1,
