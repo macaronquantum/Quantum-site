@@ -4,8 +4,9 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import uuid
 from dotenv import load_dotenv
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout,
@@ -37,6 +38,7 @@ db = client.quantum_db
 presale_purchases = db.presale_purchases
 payment_transactions = db.payment_transactions
 referral_data = db.referral_data
+wallet_sessions = db.wallet_sessions  # NEW: For storing temporary keypairs
 
 # Stripe Configuration
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
@@ -45,6 +47,51 @@ SOLANA_WALLET_ADDRESS = "2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i"
 # Token Configuration
 TOKEN_PRICE = 2.5  # USD per token
 MIN_PURCHASE = 100  # Minimum tokens
+
+
+# ============== WALLET SESSION MODELS ==============
+
+class WalletSessionCreate(BaseModel):
+    keypair: str  # JSON string of the keypair
+
+class WalletSessionResponse(BaseModel):
+    session_id: str
+
+class WalletSessionGet(BaseModel):
+    keypair: Optional[str] = None
+    error: Optional[str] = None
+
+
+# ============== WALLET SESSION ENDPOINTS ==============
+
+@app.post("/api/wallet/session", response_model=WalletSessionResponse)
+async def create_wallet_session(data: WalletSessionCreate):
+    """Store a temporary keypair and return a session ID"""
+    session_id = str(uuid.uuid4())[:8]  # Short ID for URL
+    
+    await wallet_sessions.insert_one({
+        "session_id": session_id,
+        "keypair": data.keypair,
+        "created_at": datetime.utcnow(),
+        "expires_at": datetime.utcnow() + timedelta(minutes=10)
+    })
+    
+    return WalletSessionResponse(session_id=session_id)
+
+
+@app.get("/api/wallet/session/{session_id}", response_model=WalletSessionGet)
+async def get_wallet_session(session_id: str):
+    """Retrieve and delete a keypair by session ID"""
+    session = await wallet_sessions.find_one_and_delete({"session_id": session_id})
+    
+    if not session:
+        return WalletSessionGet(error="Session not found or expired")
+    
+    # Check if expired
+    if session.get("expires_at") and session["expires_at"] < datetime.utcnow():
+        return WalletSessionGet(error="Session expired")
+    
+    return WalletSessionGet(keypair=session["keypair"])
 
 
 # ============== MODELS ==============
