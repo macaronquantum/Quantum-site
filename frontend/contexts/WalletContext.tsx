@@ -494,11 +494,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     
     await AsyncStorage.removeItem(WALLET_KEY);
     await AsyncStorage.removeItem(KEYPAIR_KEY);
-    
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.removeItem(WALLET_KEY);
-      window.localStorage.removeItem(KEYPAIR_KEY);
-    }
+    removeData(WALLET_KEY);
+    removeData(KEYPAIR_KEY);
     
     console.log('[Wallet] Disconnected');
   };
