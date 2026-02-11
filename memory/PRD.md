@@ -49,6 +49,7 @@ Cache TTL = 2 hours
 - [x] Wallet connect crash: `Linking.createURL` from `expo-linking` instead of `react-native`
 - [x] Wallet connect native: `Linking.openURL` opens Phantom app (not website) + URL listener for callback
 - [x] Unmatched Route fix: created `phantom-callback.tsx` route + fixed double `--` in redirect URL
+- [x] Pre-deploy polish: tab bar alignment, CTA glow effects, presale fallback price $0.20
 
-## Testing: 39/39 backend PASS, frontend verified
+## Testing: 39/39 backend PASS, frontend verified, all APIs returning correct data
 ## Last Updated: 2026-02-15
