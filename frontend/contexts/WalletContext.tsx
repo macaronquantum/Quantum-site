@@ -11,7 +11,6 @@ import React, {
 import { Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
-import { Buffer } from 'buffer';
 import {
   getQuantumBalance,
   getSolBalance,
@@ -41,7 +40,7 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 // Storage key for wallet address
 const WALLET_KEY = 'quantum_wallet';
 
-// Simple storage helpers for wallet address only
+// Simple storage helpers
 async function saveWallet(address: string): Promise<void> {
   try {
     if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
@@ -137,125 +136,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     connectCalled.current = false;
   }, []);
 
-  // Process Phantom callback - called when returning from Phantom with URL params
-  const processPhantomCallback = useCallback(async (): Promise<boolean> => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') return false;
-    
-    const fullUrl = window.location.href;
-    const params = new URLSearchParams(window.location.search);
-    
-    // Check if this is a Phantom callback
-    const phantomPubKey = params.get('phantom_encryption_public_key');
-    const errorCode = params.get('errorCode');
-    const sessionId = params.get('sid');
-    
-    // Not a Phantom callback
-    if (!phantomPubKey && !errorCode) {
-      return false;
-    }
-    
-    console.log('[Wallet] PHANTOM CALLBACK DETECTED');
-    console.log('[Wallet] Full URL:', fullUrl);
-    console.log('[Wallet] Session ID from URL:', sessionId);
-    
-    // Log all params for debugging
-    const allParams: string[] = [];
-    params.forEach((v, k) => allParams.push(`${k}=${v.substring(0, 30)}...`));
-    console.log('[Wallet] All params:', allParams.join(', '));
-    
-    // Check for Phantom error first
-    if (errorCode) {
-      const errMsg = params.get('errorMessage') || 'Connexion annulée';
-      // Clean URL
-      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-      setError(`PHANTOM ERREUR (${errorCode}): ${decodeURIComponent(errMsg)}`);
-      return false;
-    }
-    
-    const nonce = params.get('nonce');
-    const data = params.get('data');
-    
-    // Clean URL now
-    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-    
-    if (!phantomPubKey || !nonce || !data) {
-      setError(`ERREUR: Paramètres Phantom manquants.\n\nReçu:\n• phantom_encryption_public_key: ${phantomPubKey ? 'OUI' : 'NON'}\n• nonce: ${nonce ? 'OUI' : 'NON'}\n• data: ${data ? 'OUI' : 'NON'}`);
-      return false;
-    }
-    
-    if (!sessionId) {
-      setError(`ERREUR: Session ID (sid) manquant dans l'URL de retour.\n\nURL reçue: ${fullUrl.substring(0, 150)}...\n\nPhantom a peut-être supprimé le paramètre 'sid' de l'URL.`);
-      return false;
-    }
-    
-    console.log('[Wallet] Fetching keypair from server...');
-    
-    try {
-      // Fetch keypair from server using session ID
-      const response = await fetch(`${API_URL}/api/wallet/session/${sessionId}`);
-      const result = await response.json();
-      
-      if (result.error || !result.keypair) {
-        setError(`ERREUR SERVEUR: ${result.error || 'Keypair introuvable'}`);
-        return false;
-      }
-      
-      console.log('[Wallet] Keypair retrieved from server!');
-      
-      await ensureCrypto();
-      
-      const keypair = JSON.parse(result.keypair);
-      const secretKey = new Uint8Array(keypair.sec);
-      const phantomBytes = bs58.decode(phantomPubKey);
-      const nonceBytes = bs58.decode(nonce);
-      const dataBytes = bs58.decode(data);
-      
-      console.log('[Wallet] Decrypting...');
-      
-      const sharedSecret = nacl.box.before(phantomBytes, secretKey);
-      const decrypted = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
-      
-      if (!decrypted) {
-        setError('ERREUR DECRYPTION: La décryption a échoué');
-        return false;
-      }
-      
-      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
-      
-      if (!payload.public_key) {
-        setError('ERREUR: Pas de public_key dans la réponse Phantom');
-        return false;
-      }
-      
-      console.log('[Wallet] SUCCESS! Public key:', payload.public_key);
-      setWalletConnected(payload.public_key);
-      return true;
-      
-    } catch (err: any) {
-      setError(`ERREUR TECHNIQUE: ${err?.message || 'Inconnue'}`);
-      return false;
-    }
-  }, [setWalletConnected]);
-
-  // Initialize - check for saved wallet or Phantom callback
+  // Initialize - check for saved wallet
   useEffect(() => {
     const init = async () => {
       console.log('[Wallet] Initializing...');
-      
-      // First check for Phantom callback
-      const wasCallback = await processPhantomCallback();
-      if (wasCallback) return;
-      
-      // Then check for saved wallet
       const savedAddr = await getWallet();
       if (savedAddr) {
         console.log('[Wallet] Found saved address:', savedAddr);
         setWalletConnected(savedAddr);
       }
     };
-    
     init();
-  }, [processPhantomCallback, setWalletConnected]);
+  }, [setWalletConnected]);
 
   // Fetch balances when connected
   useEffect(() => {
@@ -364,14 +256,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
       
       if (!sessionResponse.ok) {
-        throw new Error('Failed to create session on server');
+        throw new Error('Erreur serveur: impossible de créer la session');
       }
       
       const { session_id } = await sessionResponse.json();
       console.log('[Wallet] Session ID:', session_id);
       
       // Build redirect URL with session ID IN THE PATH (not query param)
-      // This way Phantom cannot strip it
       const dappPubKey = bs58.encode(kp.publicKey);
       const baseUrl = Platform.OS === 'web' 
         ? window.location.origin
@@ -379,6 +270,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       
       // Use path-based session ID: /connect/abc12345
       const redirectUrl = `${baseUrl}/connect/${session_id}`;
+      console.log('[Wallet] Redirect URL:', redirectUrl);
       
       const phantomParams = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
@@ -396,16 +288,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       } else {
         // Native: use WebBrowser
         const result = await WebBrowser.openAuthSessionAsync(phantomUrl, redirectUrl);
-        if (result.type === 'success' && result.url) {
-          const nativeParams = new URLSearchParams(new URL(result.url).search);
-          // Process would happen via URL params
-        }
         setConnecting(false);
         connectCalled.current = false;
       }
       
     } catch (err: any) {
-      const errMsg = `ERREUR CONNECT: ${err?.message || 'Inconnue'}`;
+      const errMsg = `ERREUR: ${err?.message || 'Inconnue'}`;
       console.error('[Wallet]', errMsg);
       setError(errMsg);
       setConnecting(false);
