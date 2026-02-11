@@ -10,6 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
@@ -43,12 +45,11 @@ interface AffiliateStats {
   levels: LevelStats[];
 }
 
-interface CommissionEntry {
+interface LevelTransaction {
   id: string;
-  source_user_wallet: string;
-  level: number;
-  percentage: number;
+  source_wallet: string;
   amount: number;
+  percentage: number;
   event_type: string;
   status: string;
   created_at: string;
@@ -61,15 +62,15 @@ interface AffiliateConfig {
 }
 
 // Commission rate display helper
-const LEVEL_COLORS = {
-  1: '#8B5CF6', // Primary purple
-  2: '#A78BFA', // Light purple
-  3: '#10B981', // Green
-  4: '#F59E0B', // Gold
-  5: '#6B7280', // Gray
+const LEVEL_COLORS: Record<number, string> = {
+  1: '#8B5CF6',
+  2: '#A78BFA',
+  3: '#10B981',
+  4: '#F59E0B',
+  5: '#6B7280',
 };
 
-const LEVEL_ICONS = {
+const LEVEL_ICONS: Record<number, string> = {
   1: 'person',
   2: 'people',
   3: 'git-network',
@@ -83,22 +84,24 @@ export default function Affiliation() {
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<AffiliateStats | null>(null);
   const [config, setConfig] = useState<AffiliateConfig | null>(null);
-  const [commissions, setCommissions] = useState<CommissionEntry[]>([]);
-  const [showCommissions, setShowCommissions] = useState(false);
+  
+  // Level detail modal
+  const [selectedLevel, setSelectedLevel] = useState<number | null>(null);
+  const [levelTransactions, setLevelTransactions] = useState<LevelTransaction[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [levelModalVisible, setLevelModalVisible] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!address) return;
     
     try {
-      const [statsRes, configRes, commissionsRes] = await Promise.all([
+      const [statsRes, configRes] = await Promise.all([
         axios.get(`${BACKEND_URL}/api/affiliate/${address}/stats`),
         axios.get(`${BACKEND_URL}/api/affiliate/config`),
-        axios.get(`${BACKEND_URL}/api/affiliate/${address}/commissions?limit=10`),
       ]);
       
       setStats(statsRes.data);
       setConfig(configRes.data);
-      setCommissions(commissionsRes.data.commissions || []);
     } catch (error) {
       console.error('Error fetching affiliate data:', error);
     }
@@ -119,23 +122,32 @@ export default function Affiliation() {
     setRefreshing(false);
   }, [fetchData]);
 
-  const copyReferralCode = async () => {
-    if (!stats?.referral_code) return;
+  const fetchLevelTransactions = async (level: number) => {
+    if (!address) return;
+    setLoadingTransactions(true);
     try {
-      await Clipboard.setStringAsync(stats.referral_code);
-      Alert.alert('Copié !', 'Code de parrainage copié');
-    } catch {
-      Alert.alert('Code', stats.referral_code);
+      const response = await axios.get(`${BACKEND_URL}/api/affiliate/${address}/level/${level}/transactions`);
+      setLevelTransactions(response.data.transactions || []);
+    } catch (error) {
+      console.error('Error fetching level transactions:', error);
+      setLevelTransactions([]);
+    } finally {
+      setLoadingTransactions(false);
     }
   };
 
-  const copyReferralLink = async () => {
-    if (!stats?.referral_link) return;
+  const openLevelDetail = (level: number) => {
+    setSelectedLevel(level);
+    setLevelModalVisible(true);
+    fetchLevelTransactions(level);
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      await Clipboard.setStringAsync(stats.referral_link);
-      Alert.alert('Copié !', 'Lien de parrainage copié');
+      await Clipboard.setStringAsync(text);
+      Alert.alert('Copié !', `${label} copié dans le presse-papiers`);
     } catch {
-      Alert.alert('Lien', stats.referral_link);
+      Alert.alert(label, text);
     }
   };
 
@@ -152,7 +164,7 @@ export default function Affiliation() {
   };
 
   const formatWallet = (wallet: string) => {
-    if (wallet.length <= 12) return wallet;
+    if (!wallet || wallet.length <= 12) return wallet || '—';
     return `${wallet.slice(0, 6)}...${wallet.slice(-4)}`;
   };
 
@@ -161,6 +173,7 @@ export default function Affiliation() {
     return date.toLocaleDateString('fr-FR', { 
       day: '2-digit', 
       month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -222,9 +235,108 @@ export default function Affiliation() {
     );
   }
 
+  // Level Detail Modal
+  const renderLevelModal = () => (
+    <Modal
+      visible={levelModalVisible}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setLevelModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderLeft}>
+              <View style={[
+                styles.levelIconContainerModal, 
+                { backgroundColor: `${LEVEL_COLORS[selectedLevel || 1]}20` }
+              ]}>
+                <Ionicons 
+                  name={(LEVEL_ICONS[selectedLevel || 1] || 'ellipse') as any} 
+                  size={20} 
+                  color={LEVEL_COLORS[selectedLevel || 1]} 
+                />
+              </View>
+              <View>
+                <Text style={styles.modalTitle}>Niveau {selectedLevel}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {config?.commission_rates[String(selectedLevel)]?.percentage || 0}% de commission
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity 
+              onPress={() => setLevelModalVisible(false)}
+              style={styles.closeButton}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingTransactions ? (
+            <View style={styles.modalLoading}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Chargement...</Text>
+            </View>
+          ) : levelTransactions.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-text-outline" size={48} color={COLORS.textTertiary} />
+              <Text style={styles.emptyTitle}>Aucune transaction</Text>
+              <Text style={styles.emptySubtitle}>
+                Les commissions de niveau {selectedLevel} apparaîtront ici quand vos filleuls effectueront des achats
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={levelTransactions}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.transactionItem}>
+                  <View style={styles.transactionLeft}>
+                    <View style={styles.transactionIconWrap}>
+                      <Ionicons name="wallet-outline" size={18} color={COLORS.primary} />
+                    </View>
+                    <View style={styles.transactionInfo}>
+                      <TouchableOpacity 
+                        onPress={() => copyToClipboard(item.source_wallet, 'Wallet')}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.transactionWallet}>{formatWallet(item.source_wallet)}</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.transactionDate}>{formatDate(item.created_at)}</Text>
+                      <Text style={styles.transactionType}>
+                        {item.event_type === 'presale_purchase' ? 'Achat Pre-Sale' : item.event_type}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.transactionRight}>
+                    <Text style={styles.transactionAmount}>+${item.amount.toFixed(2)}</Text>
+                    <View style={[
+                      styles.statusBadge,
+                      { backgroundColor: item.status === 'paid' ? COLORS.success : 
+                        item.status === 'confirmed' ? COLORS.primary : COLORS.warning }
+                    ]}>
+                      <Text style={styles.statusText}>
+                        {item.status === 'paid' ? 'Payé' : 
+                         item.status === 'confirmed' ? 'Confirmé' : 'En attente'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              contentContainerStyle={styles.transactionsList}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
+      {renderLevelModal()}
       <ScrollView 
         style={styles.scrollView} 
         contentContainerStyle={styles.scrollContent}
@@ -257,7 +369,7 @@ export default function Affiliation() {
 
           <TouchableOpacity 
             style={styles.codeContainer} 
-            onPress={copyReferralCode}
+            onPress={() => copyToClipboard(stats?.referral_code || '', 'Code')}
             activeOpacity={0.7}
             data-testid="referral-code-display"
           >
@@ -268,7 +380,7 @@ export default function Affiliation() {
           <View style={styles.buttonRow}>
             <TouchableOpacity 
               style={styles.actionButton} 
-              onPress={copyReferralLink}
+              onPress={() => copyToClipboard(stats?.referral_link || '', 'Lien')}
               activeOpacity={0.7}
               data-testid="copy-link-btn"
             >
@@ -328,19 +440,22 @@ export default function Affiliation() {
           </View>
         </View>
 
-        {/* Levels Breakdown */}
+        {/* Levels Breakdown - Clickable */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Détail par Niveau</Text>
+          <Text style={styles.sectionHint}>Appuyez sur un niveau pour voir les transactions</Text>
           <View style={styles.levelsContainer}>
             {stats?.levels.map((level) => {
               const rate = config?.commission_rates[String(level.level)];
-              const levelColor = LEVEL_COLORS[level.level as keyof typeof LEVEL_COLORS] || COLORS.textSecondary;
-              const levelIcon = LEVEL_ICONS[level.level as keyof typeof LEVEL_ICONS] || 'ellipse';
+              const levelColor = LEVEL_COLORS[level.level] || COLORS.textSecondary;
+              const levelIcon = LEVEL_ICONS[level.level] || 'ellipse';
               
               return (
-                <View 
+                <TouchableOpacity 
                   key={level.level} 
                   style={styles.levelCard}
+                  onPress={() => openLevelDetail(level.level)}
+                  activeOpacity={0.7}
                   data-testid={`level-${level.level}-card`}
                 >
                   <View style={styles.levelHeader}>
@@ -357,6 +472,7 @@ export default function Affiliation() {
                       <Text style={styles.levelStatValue}>{level.referral_count}</Text>
                       <Text style={styles.levelStatLabel}>filleuls</Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.textTertiary} />
                   </View>
                   
                   <View style={styles.levelCommissions}>
@@ -379,7 +495,7 @@ export default function Affiliation() {
                       </Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -397,7 +513,7 @@ export default function Affiliation() {
               {Object.entries(config?.commission_rates || {}).map(([level, rate]) => (
                 <View key={level} style={styles.rateItem}>
                   <Text style={styles.rateLevel}>Niv. {level}</Text>
-                  <Text style={[styles.rateValue, { color: LEVEL_COLORS[Number(level) as keyof typeof LEVEL_COLORS] }]}>
+                  <Text style={[styles.rateValue, { color: LEVEL_COLORS[Number(level)] }]}>
                     {rate.percentage}%
                   </Text>
                 </View>
@@ -411,69 +527,6 @@ export default function Affiliation() {
             </View>
           </View>
         </View>
-
-        {/* Recent Commissions */}
-        {commissions.length > 0 && (
-          <View style={styles.section}>
-            <TouchableOpacity 
-              style={styles.sectionHeader}
-              onPress={() => setShowCommissions(!showCommissions)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.sectionTitle}>Commissions Récentes</Text>
-              <Ionicons 
-                name={showCommissions ? 'chevron-up' : 'chevron-down'} 
-                size={20} 
-                color={COLORS.textSecondary} 
-              />
-            </TouchableOpacity>
-            
-            {showCommissions && (
-              <View style={styles.commissionsContainer} data-testid="commissions-list">
-                {commissions.map((commission) => (
-                  <View key={commission.id} style={styles.commissionItem}>
-                    <View style={styles.commissionLeft}>
-                      <View style={[
-                        styles.commissionLevelBadge, 
-                        { backgroundColor: `${LEVEL_COLORS[commission.level as keyof typeof LEVEL_COLORS] || COLORS.textSecondary}20` }
-                      ]}>
-                        <Text style={[
-                          styles.commissionLevelText,
-                          { color: LEVEL_COLORS[commission.level as keyof typeof LEVEL_COLORS] || COLORS.textSecondary }
-                        ]}>
-                          N{commission.level}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={styles.commissionSource}>
-                          {formatWallet(commission.source_user_wallet)}
-                        </Text>
-                        <Text style={styles.commissionDate}>
-                          {formatDate(commission.created_at)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.commissionRight}>
-                      <Text style={styles.commissionAmount}>
-                        +${commission.amount.toFixed(2)}
-                      </Text>
-                      <View style={[
-                        styles.commissionStatusBadge,
-                        { backgroundColor: commission.status === 'paid' ? COLORS.success : 
-                          commission.status === 'confirmed' ? COLORS.primary : COLORS.warning }
-                      ]}>
-                        <Text style={styles.commissionStatusText}>
-                          {commission.status === 'paid' ? 'Payé' : 
-                           commission.status === 'confirmed' ? 'Confirmé' : 'En attente'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -665,16 +718,16 @@ const styles = StyleSheet.create({
   section: { 
     marginBottom: SPACING.xl 
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   sectionTitle: { 
     fontSize: FONT_SIZES.md, 
     fontWeight: FONT_WEIGHTS.semibold, 
     color: COLORS.textPrimary, 
-    marginBottom: SPACING.md 
+    marginBottom: SPACING.xs 
+  },
+  sectionHint: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    marginBottom: SPACING.md,
   },
   
   // Global Stats
@@ -779,6 +832,7 @@ const styles = StyleSheet.create({
   },
   levelStats: {
     alignItems: 'flex-end',
+    marginRight: SPACING.sm,
   },
   levelStatValue: {
     fontSize: FONT_SIZES.lg,
@@ -865,62 +919,146 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   
-  // Commissions List
-  commissionsContainer: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.lg,
-    overflow: 'hidden',
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'flex-end',
   },
-  commissionItem: {
+  modalContent: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.md,
+    padding: SPACING.lg,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  commissionLeft: {
+  modalHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.md,
   },
-  commissionLevelBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: BORDER_RADIUS.sm,
+  levelIconContainerModal: {
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  commissionLevelText: {
-    fontSize: FONT_SIZES.xs,
+  modalTitle: {
+    fontSize: FONT_SIZES.lg,
     fontWeight: FONT_WEIGHTS.bold,
-  },
-  commissionSource: {
-    fontSize: FONT_SIZES.sm,
-    fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textPrimary,
   },
-  commissionDate: {
+  modalSubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.surfaceElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xxl,
+  },
+  
+  // Empty state
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SPACING.xxl,
+  },
+  emptyTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  emptySubtitle: {
+    fontSize: FONT_SIZES.sm,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  
+  // Transactions list
+  transactionsList: {
+    padding: SPACING.lg,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  transactionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    flex: 1,
+  },
+  transactionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: `${COLORS.primary}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionWallet: {
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+    color: COLORS.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  transactionDate: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  transactionType: {
     fontSize: FONT_SIZES.xs,
     color: COLORS.textTertiary,
   },
-  commissionRight: {
+  transactionRight: {
     alignItems: 'flex-end',
   },
-  commissionAmount: {
+  transactionAmount: {
     fontSize: FONT_SIZES.md,
     fontWeight: FONT_WEIGHTS.bold,
     color: COLORS.success,
   },
-  commissionStatusBadge: {
+  statusBadge: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.xs,
     marginTop: 4,
   },
-  commissionStatusText: {
+  statusText: {
     fontSize: FONT_SIZES.xs,
     fontWeight: FONT_WEIGHTS.medium,
     color: COLORS.textPrimary,
