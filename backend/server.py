@@ -580,6 +580,295 @@ async def get_affiliate_config():
     }
 
 
+@app.get("/api/affiliate/{wallet}/level/{level}/transactions")
+async def get_level_transactions(wallet: str, level: int, limit: int = 50, offset: int = 0):
+    """Get all transactions/commissions for a specific level"""
+    if level < 1 or level > MAX_AFFILIATE_LEVEL:
+        raise HTTPException(status_code=400, detail="Invalid level (1-5)")
+    
+    # Get commissions where this user is beneficiary at this specific level
+    total_count = await affiliate_commissions.count_documents({
+        "beneficiary_user_id": wallet,
+        "level": level
+    })
+    
+    commissions_cursor = affiliate_commissions.find(
+        {"beneficiary_user_id": wallet, "level": level},
+        {"_id": 0}
+    ).sort("created_at", -1).skip(offset).limit(limit)
+    
+    commissions = await commissions_cursor.to_list(length=limit)
+    
+    transactions = []
+    for c in commissions:
+        transactions.append({
+            "id": c.get("commission_id", str(uuid.uuid4())),
+            "source_wallet": c["source_user_id"],
+            "amount": c["amount"],
+            "percentage": c["percentage"],
+            "event_type": c["event_type"],
+            "event_id": c["event_id"],
+            "status": c["status"],
+            "created_at": c["created_at"].isoformat() if isinstance(c["created_at"], datetime) else str(c["created_at"])
+        })
+    
+    return {
+        "wallet": wallet,
+        "level": level,
+        "commission_rate": COMMISSION_RATES.get(level, 0) * 100,
+        "transactions": transactions,
+        "total_count": total_count,
+        "total_amount": sum(t["amount"] for t in transactions)
+    }
+
+
+# ============== NOTIFICATION SYSTEM ==============
+
+class NotificationType(str, Enum):
+    AFFILIATE_PURCHASE = "affiliate_purchase"
+    COMMISSION_RECEIVED = "commission_received"
+    COMMISSION_PAID = "commission_paid"
+    NEW_REFERRAL = "new_referral"
+    SYSTEM = "system"
+
+
+class PushTokenRegister(BaseModel):
+    wallet: str
+    push_token: str
+    platform: str = "expo"  # expo, ios, android
+
+
+class NotificationResponse(BaseModel):
+    id: str
+    type: str
+    title: str
+    body: str
+    data: Optional[Dict] = None
+    read: bool
+    created_at: str
+
+
+async def create_notification(
+    wallet: str,
+    notification_type: NotificationType,
+    title: str,
+    body: str,
+    data: Optional[Dict] = None
+) -> str:
+    """Create a notification for a user"""
+    notification_id = str(uuid.uuid4())
+    
+    notification_doc = {
+        "notification_id": notification_id,
+        "wallet": wallet,
+        "type": notification_type.value,
+        "title": title,
+        "body": body,
+        "data": data or {},
+        "read": False,
+        "created_at": datetime.now(timezone.utc)
+    }
+    
+    await notifications_collection.insert_one(notification_doc)
+    
+    # TODO: Send push notification via Expo Push API
+    # This would require the expo-server-sdk or direct API call
+    # For now, we store the notification for in-app display
+    
+    return notification_id
+
+
+async def notify_affiliate_of_purchase(
+    beneficiary_wallet: str,
+    source_wallet: str,
+    level: int,
+    commission_amount: float,
+    purchase_amount: float
+):
+    """Notify an affiliate when they receive a commission"""
+    title = f"Commission Niveau {level} !"
+    body = f"Vous avez gagné ${commission_amount:.2f} ({COMMISSION_RATES.get(level, 0) * 100}%) sur un achat de ${purchase_amount:.2f}"
+    
+    await create_notification(
+        wallet=beneficiary_wallet,
+        notification_type=NotificationType.COMMISSION_RECEIVED,
+        title=title,
+        body=body,
+        data={
+            "source_wallet": source_wallet,
+            "level": level,
+            "commission_amount": commission_amount,
+            "purchase_amount": purchase_amount
+        }
+    )
+
+
+@app.post("/api/notifications/register-push-token")
+async def register_push_token(data: PushTokenRegister):
+    """Register an Expo push token for a wallet"""
+    await push_tokens_collection.update_one(
+        {"wallet": data.wallet},
+        {
+            "$set": {
+                "wallet": data.wallet,
+                "push_token": data.push_token,
+                "platform": data.platform,
+                "updated_at": datetime.now(timezone.utc)
+            }
+        },
+        upsert=True
+    )
+    return {"success": True, "message": "Push token registered"}
+
+
+@app.get("/api/notifications/{wallet}")
+async def get_notifications(wallet: str, limit: int = 50, unread_only: bool = False):
+    """Get notifications for a wallet"""
+    query = {"wallet": wallet}
+    if unread_only:
+        query["read"] = False
+    
+    notifications_cursor = notifications_collection.find(
+        query,
+        {"_id": 0}
+    ).sort("created_at", -1).limit(limit)
+    
+    notifications = await notifications_cursor.to_list(length=limit)
+    
+    # Count unread
+    unread_count = await notifications_collection.count_documents({
+        "wallet": wallet,
+        "read": False
+    })
+    
+    result = []
+    for n in notifications:
+        result.append(NotificationResponse(
+            id=n["notification_id"],
+            type=n["type"],
+            title=n["title"],
+            body=n["body"],
+            data=n.get("data"),
+            read=n["read"],
+            created_at=n["created_at"].isoformat() if isinstance(n["created_at"], datetime) else str(n["created_at"])
+        ))
+    
+    return {
+        "notifications": result,
+        "unread_count": unread_count
+    }
+
+
+@app.post("/api/notifications/{wallet}/mark-read")
+async def mark_notifications_read(wallet: str, notification_ids: List[str] = None):
+    """Mark notifications as read"""
+    query = {"wallet": wallet}
+    if notification_ids:
+        query["notification_id"] = {"$in": notification_ids}
+    
+    result = await notifications_collection.update_many(
+        query,
+        {"$set": {"read": True}}
+    )
+    
+    return {"success": True, "marked_read": result.modified_count}
+
+
+@app.delete("/api/notifications/{wallet}/clear")
+async def clear_notifications(wallet: str):
+    """Clear all notifications for a wallet"""
+    result = await notifications_collection.delete_many({"wallet": wallet})
+    return {"success": True, "deleted": result.deleted_count}
+
+
+# ============== PRESALE PROGRESS ==============
+
+class PresaleConfigUpdate(BaseModel):
+    total_raised: Optional[float] = None
+    goal: Optional[float] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+@app.get("/api/presale/progress")
+async def get_presale_progress():
+    """Get presale progress (public endpoint)"""
+    config = await presale_config_collection.find_one(
+        {"config_id": "main"},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Default values
+        config = {
+            "total_raised": 0,
+            "goal": 2000000,  # $2M
+            "start_date": None,
+            "end_date": None,
+            "is_active": True,
+            "participants": 0
+        }
+    
+    # Calculate progress percentage
+    goal = config.get("goal", 2000000)
+    total_raised = config.get("total_raised", 0)
+    progress_percentage = (total_raised / goal * 100) if goal > 0 else 0
+    
+    return {
+        "total_raised": total_raised,
+        "goal": goal,
+        "progress_percentage": min(progress_percentage, 100),
+        "remaining": max(goal - total_raised, 0),
+        "start_date": config.get("start_date"),
+        "end_date": config.get("end_date"),
+        "is_active": config.get("is_active", True),
+        "participants": config.get("participants", 0)
+    }
+
+
+@app.put("/api/presale/config")
+async def update_presale_config(config_update: PresaleConfigUpdate):
+    """Update presale configuration (admin endpoint)"""
+    update_data = {}
+    
+    if config_update.total_raised is not None:
+        update_data["total_raised"] = config_update.total_raised
+    if config_update.goal is not None:
+        update_data["goal"] = config_update.goal
+    if config_update.start_date is not None:
+        update_data["start_date"] = config_update.start_date
+    if config_update.end_date is not None:
+        update_data["end_date"] = config_update.end_date
+    if config_update.is_active is not None:
+        update_data["is_active"] = config_update.is_active
+    
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        
+        await presale_config_collection.update_one(
+            {"config_id": "main"},
+            {"$set": update_data},
+            upsert=True
+        )
+    
+    return {"success": True, "message": "Configuration updated"}
+
+
+@app.post("/api/presale/increment-raised")
+async def increment_presale_raised(amount: float):
+    """Increment the total raised amount (internal use)"""
+    await presale_config_collection.update_one(
+        {"config_id": "main"},
+        {
+            "$inc": {"total_raised": amount, "participants": 1},
+            "$set": {"updated_at": datetime.now(timezone.utc)}
+        },
+        upsert=True
+    )
+    return {"success": True}
+
+
 # ============== LEGACY MODELS (for backward compatibility) ==============
 
 class PreSalePurchaseRequest(BaseModel):
