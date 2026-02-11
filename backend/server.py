@@ -49,8 +49,10 @@ notifications_collection = db.notifications
 push_tokens_collection = db.push_tokens
 presale_config_collection = db.presale_config
 
-# Stripe Configuration
-STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
+# Card2Crypto Configuration (replaces Stripe)
+CARD2CRYPTO_PAYOUT_WALLET = "0xA4014c46D420409b5Ef2eb9862a64F74690863C7"  # USDC Polygon wallet
+CARD2CRYPTO_API_BASE = "https://api.card2crypto.org/control"
+CARD2CRYPTO_PAY_BASE = "https://pay.card2crypto.org"
 SOLANA_WALLET_ADDRESS = "2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i"
 
 # Solana Configuration
