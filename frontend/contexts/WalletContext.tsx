@@ -358,6 +358,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         connectWallet,
         disconnectWallet,
         refreshBalances,
+        setConnectedAddress,
       }}
     >
       {children}
