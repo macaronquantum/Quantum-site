@@ -146,7 +146,8 @@ Application Expo/React Native pour Quantum DAO avec:
 - [x] **Input code parrainage dans presale**
 - [x] **URL param ?ref=CODE supporté**
 - [x] **Système notifications complet**
-- [x] **Copy buttons fonctionnels**
+- [x] **Copy buttons fonctionnels (tous)**
+- [x] **CTA marketing banner (50% prix listing, 1er Juin 2026)**
 
 ## Mocked/Hardcoded
 - **QUANTUM_PRICE_USD = $2.50** (pré-TGE, hardcodé)
