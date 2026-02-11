@@ -173,36 +173,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       pub: Array.from(publicKey),
       sec: Array.from(secretKey),
     });
+    
+    // Store in multiple places for reliability
+    storeData(KEYPAIR_KEY, data);
     await AsyncStorage.setItem(KEYPAIR_KEY, data);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.localStorage.setItem(KEYPAIR_KEY, data);
-    }
-    console.log('[Wallet] Keypair stored');
+    
+    console.log('[Wallet] Keypair stored in multiple locations');
   };
 
   // ─── Restore keypair ───────────────────────────────────────
   const restoreKeypair = async (): Promise<{ publicKey: Uint8Array; secretKey: Uint8Array } | null> => {
     try {
-      let data: string | null = null;
-      
-      // Try localStorage first (more reliable on web)
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        data = window.localStorage.getItem(KEYPAIR_KEY);
-      }
+      // Try web storage first (localStorage, sessionStorage, cookie)
+      let data = getData(KEYPAIR_KEY);
       
       // Fallback to AsyncStorage
       if (!data) {
         data = await AsyncStorage.getItem(KEYPAIR_KEY);
+        if (data) console.log('[Storage] Found in AsyncStorage');
       }
       
       if (data) {
         const parsed = JSON.parse(data);
-        console.log('[Wallet] Keypair restored');
+        console.log('[Wallet] Keypair restored successfully');
         return {
           publicKey: new Uint8Array(parsed.pub),
           secretKey: new Uint8Array(parsed.sec),
         };
       }
+      
+      console.log('[Wallet] No keypair found in any storage');
     } catch (e) {
       console.error('[Wallet] Failed to restore keypair:', e);
     }
