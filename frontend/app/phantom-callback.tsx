@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Buffer } from 'buffer';
 import { COLORS } from '../constants/theme';
@@ -24,30 +23,37 @@ async function ensureCrypto(): Promise<void> {
 export default function PhantomCallbackNative() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { setConnectedAddress } = useWallet();
+  const { connected, setConnectedAddress } = useWallet();
   const [status, setStatus] = useState('Connexion en cours...');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // If URL listener already connected the wallet, just redirect
+    if (connected) {
+      console.log('[PhantomCallback] Wallet already connected, redirecting...');
+      router.replace('/(tabs)/portfolio');
+      return;
+    }
+
     const process = async () => {
       try {
-        const phantomPubKey = params.phantom_encryption_public_key as string;
-        const nonce = params.nonce as string;
-        const data = params.data as string;
         const errorCode = params.errorCode as string;
-
         if (errorCode) {
           const errMsg = params.errorMessage
             ? decodeURIComponent(params.errorMessage as string)
             : 'Connexion annulee';
           setError(`Phantom: ${errMsg}`);
-          setTimeout(() => router.replace('/(tabs)/portfolio'), 2000);
+          setTimeout(() => router.replace('/(tabs)/profile'), 2000);
           return;
         }
 
+        const phantomPubKey = params.phantom_encryption_public_key as string;
+        const nonce = params.nonce as string;
+        const data = params.data as string;
+
         if (!phantomPubKey || !nonce || !data) {
           setError('Parametres Phantom manquants');
-          setTimeout(() => router.replace('/(tabs)/portfolio'), 2000);
+          setTimeout(() => router.replace('/(tabs)/profile'), 2000);
           return;
         }
 
@@ -96,7 +102,7 @@ export default function PhantomCallbackNative() {
     };
 
     process();
-  }, []);
+  }, [connected]);
 
   return (
     <View style={styles.container}>
