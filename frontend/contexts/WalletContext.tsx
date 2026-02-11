@@ -305,7 +305,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const dappPubKey = bs58.encode(kp.publicKey);
       const baseUrl = Platform.OS === 'web' 
         ? window.location.origin
-        : Linking.createURL('');
+        : createURL('');
       
       // Use path-based session ID: /connect/abc12345
       const redirectUrl = `${baseUrl}/connect/${session_id}`;
