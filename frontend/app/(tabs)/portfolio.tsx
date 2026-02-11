@@ -456,4 +456,59 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.sm,
     fontWeight: FONT_WEIGHTS.semibold,
   },
+  // CTA Banner
+  ctaBanner: {
+    marginBottom: SPACING.lg,
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+  },
+  ctaGradient: {
+    padding: SPACING.lg,
+  },
+  ctaContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ctaLeft: {
+    flex: 1,
+  },
+  ctaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: BORDER_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginBottom: SPACING.sm,
+  },
+  ctaBadgeText: {
+    fontSize: 10,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#FCD34D',
+    letterSpacing: 0.5,
+  },
+  ctaTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: '#fff',
+    marginBottom: 4,
+  },
+  ctaSubtitle: {
+    fontSize: FONT_SIZES.xs,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  ctaRight: {
+    marginLeft: SPACING.md,
+  },
+  ctaButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
