@@ -1,68 +1,48 @@
-# Quantum DAO - Product Requirements Document
-
-## Original Problem Statement
-Application Expo/React Native pour Quantum DAO avec systeme MLM 5 niveaux, presale, notifications.
-
-## Technical Architecture
-- **Frontend**: React Native + Expo Router (Web)
-- **Backend**: FastAPI + MongoDB
-- **Blockchain**: Solana Mainnet-Beta (via backend proxy)
+# Quantum DAO - PRD
 
 ## What's Implemented
-- [x] Wallet Phantom connection (web + mobile)
-- [x] Balance Quantum on-chain via backend proxy (9,924,000 QTM verified)
+- [x] Wallet Phantom connection
+- [x] Balance Quantum on-chain via backend proxy (9,924,000 QTM)
 - [x] Balance SOL + conversion USD/EUR
-- [x] MLM 5 niveaux (L1=20%, L2=10%, L3=5%, L4=2.5%, L5=1% = 38.5%)
-- [x] Dashboard affiliation avec detail par niveau (cliquable)
-- [x] Distribution automatique des commissions
-- [x] Notifications in-app (auto on commission)
-- [x] Copy buttons cross-platform (navigator.clipboard web + expo-clipboard native)
-- [x] Cross-platform alerts (window.alert web + Alert.alert native)
-- [x] Presale progress bar ($2M goal, on-chain data + manual fallback)
-- [x] Presale participants = real token holders (4 via manual config)
-- [x] SOL price from CoinGecko
-- [x] CTA marketing banner
-- [x] Lien Solscan discret sur page d'accueil
 - [x] Prix Quantum = $0.20 (pre-TGE)
-- [x] Backend proxy Solana balance (avoid CORS)
+- [x] MLM 5 niveaux (L1=20%, L2=10%, L3=5%, L4=2.5%, L5=1%)
+- [x] Dashboard affiliation avec detail par niveau
+- [x] Notifications in-app auto
+- [x] Copy buttons cross-platform (web + native)
+- [x] Cross-platform alerts
+- [x] Presale progress = valeur totale wallet on-chain en USD (cache 2h)
+- [x] Holders = getTokenLargestAccounts on-chain (fallback MongoDB)
+- [x] Lien Solscan sous Holdings sur page Portfolio
+- [x] CTA marketing banner
+- [x] Backend proxy Solana balance
 
-## Key Configuration
-- QUANTUM_PRICE_USD = $0.20
+## Architecture
+- Frontend: Expo Router (Web), Backend: FastAPI + MongoDB
+- Solana Mainnet via backend RPC proxy (rate-limit safe)
 - QUANTUM_MINT = 4KsZXRH3Xjd7z4CiuwgfNQstC2aHDLdJHv5u3tDixtLc
 - WALLET = 2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i
-- Presale Goal = $2,000,000
-- SOL received tracking (on-chain with rate-limit handling)
-- Presale cache TTL = 30 min
 
 ## Key Files
-- `/app/frontend/utils/solanaRpc.ts` - RPC + backend proxy + SOLSCAN_TOKEN_URL
-- `/app/frontend/utils/platform.ts` - Cross-platform alert/clipboard
-- `/app/frontend/contexts/WalletContext.tsx` - Wallet + balance (backend proxy first)
-- `/app/frontend/app/index.tsx` - Landing page with Solscan link
-- `/app/frontend/app/(tabs)/portfolio.tsx` - Portfolio ($0.20 price)
-- `/app/frontend/app/(tabs)/affiliation.tsx` - MLM Dashboard
-- `/app/frontend/app/(tabs)/profile.tsx` - Profile + Notifications
-- `/app/frontend/app/(tabs)/presale.tsx` - Presale form
-- `/app/backend/server.py` - All backend APIs
+- /app/backend/server.py - API + on-chain presale logic
+- /app/frontend/utils/solanaRpc.ts - RPC proxy + constants
+- /app/frontend/utils/platform.ts - Cross-platform utils
+- /app/frontend/contexts/WalletContext.tsx - Wallet + balances
+- /app/frontend/app/(tabs)/portfolio.tsx - Portfolio + Solscan link
+- /app/frontend/app/(tabs)/presale.tsx - Presale form
+- /app/frontend/app/(tabs)/affiliation.tsx - MLM Dashboard
+- /app/frontend/app/(tabs)/profile.tsx - Profile + Notifications
 
-## API Endpoints
-- `GET /api/solana/balance/{wallet}` - SOL + QTM balance proxy
-- `GET /api/presale/progress` - On-chain presale stats (cached 30min)
-- `PUT /api/presale/config` - Manual presale override (admin)
-- `POST /api/affiliate/register` - Register with referral
-- `GET /api/affiliate/{wallet}/stats` - MLM stats per level
-- `GET /api/affiliate/{wallet}/level/{level}/transactions` - Level transactions
-- `POST /api/affiliate/commission/distribute` - Distribute commissions
-- `GET /api/notifications/{wallet}` - User notifications
+## Presale Progress Logic
+total_raised = SOL_balance * SOL_price + QTM_balance * $0.20 + USDC + USDT
+participants = getTokenLargestAccounts (on-chain, fallback MongoDB)
+Cache TTL = 2 hours
 
 ## Backlog
-### P1
-- [ ] Dashboard admin
-- [ ] Expo Push Notifications natives
-### P2
-- [ ] Arbre visuel d'affiliation
-- [ ] Refactoring server.py en modules
-- [ ] Paid RPC endpoint (Helius/QuickNode) for reliable on-chain data
+- [ ] Dashboard admin (P1)
+- [ ] Expo Push Notifications natives (P1)
+- [ ] Paid RPC endpoint pour fiabilite (P1)
+- [ ] Arbre visuel affiliation (P2)
+- [ ] Refactoring server.py (P2)
 
-## Testing: 39/39 backend tests PASS (iteration_5.json)
+## Testing: 39/39 backend PASS, frontend verified
 ## Last Updated: 2026-02-11
