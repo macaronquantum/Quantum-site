@@ -90,6 +90,7 @@ export interface WalletState {
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   refreshBalances: () => Promise<void>;
+  setConnectedAddress: (address: string) => void; // NEW: For callback page
 }
 
 const WalletContext = createContext<WalletState>({
