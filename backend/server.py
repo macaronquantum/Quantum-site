@@ -940,7 +940,7 @@ async def stripe_webhook(request: Request):
                     {
                         "$set": {
                             "paymentStatus": "paid",
-                            "updatedAt": datetime.utcnow()
+                            "updatedAt": datetime.now(timezone.utc)
                         }
                     }
                 )
@@ -951,12 +951,23 @@ async def stripe_webhook(request: Request):
                     {
                         "$set": {
                             "paymentStatus": "paid",
-                            "updatedAt": datetime.utcnow()
+                            "updatedAt": datetime.now(timezone.utc)
                         }
                     }
                 )
                 
-                # Update referral if applicable
+                # Get purchase details for MLM commission distribution
+                purchase = await presale_purchases.find_one({"stripeSessionId": webhook_response.session_id})
+                if purchase:
+                    # Distribute MLM commissions
+                    await distribute_commissions(
+                        source_wallet=purchase["walletAddress"],
+                        net_amount=purchase["totalPrice"],
+                        event_type=EventType.PRESALE_PURCHASE.value,
+                        event_id=purchase.get("purchase_id", webhook_response.session_id)
+                    )
+                
+                # Legacy: Update old referral if applicable
                 if webhook_response.metadata and webhook_response.metadata.get("referralCode"):
                     metadata = webhook_response.metadata
                     token_amount = int(metadata.get("tokenAmount", 0))
