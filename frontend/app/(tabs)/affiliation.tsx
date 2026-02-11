@@ -592,6 +592,11 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.xl,
     borderRadius: BORDER_RADIUS.lg,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    elevation: 8,
   },
   connectButtonText: {
     fontSize: FONT_SIZES.md,
@@ -705,7 +710,12 @@ const styles = StyleSheet.create({
   },
   actionButtonPrimary: { 
     backgroundColor: COLORS.primary, 
-    borderColor: COLORS.primary 
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
   actionButtonText: { 
     fontSize: FONT_SIZES.sm, 

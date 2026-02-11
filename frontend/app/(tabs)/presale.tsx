@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
   cryptoNote: { fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, textAlign: 'center' },
   terms: { flexDirection: 'row', gap: SPACING.sm, backgroundColor: COLORS.surface, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.lg, borderWidth: 1, borderColor: COLORS.border },
   termsText: { flex: 1, fontSize: FONT_SIZES.xs, color: COLORS.textTertiary, lineHeight: 16 },
-  purchaseButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden' },
+  purchaseButton: { borderRadius: BORDER_RADIUS.lg, overflow: 'hidden', shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 8 },
   purchaseButtonDisabled: { opacity: 0.5 },
   purchaseButtonGradient: { alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
   purchaseButtonText: { fontSize: FONT_SIZES.md, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary },

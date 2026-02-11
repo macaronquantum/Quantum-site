@@ -377,6 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
     backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.lg,
     paddingVertical: 14, paddingHorizontal: SPACING.xl,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 8,
   },
   connectBtnText: { fontSize: FONT_SIZES.base, fontWeight: FONT_WEIGHTS.semibold, color: '#fff' },
   scrollView: { flex: 1 },
