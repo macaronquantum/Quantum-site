@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Switch, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
@@ -8,6 +8,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import { QUANTUM_PRICE_USD } from '../../utils/solanaRpc';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: any;
+  read: boolean;
+  created_at: string;
+}
 
 export default function Profile() {
   const {
@@ -27,8 +40,17 @@ export default function Profile() {
   const [notifications, setNotifications] = useState(true);
   const [priceAlerts, setPriceAlerts] = useState(false);
   const [network, setNetwork] = useState<'mainnet' | 'devnet'>('mainnet');
+  const [notificationsList, setNotificationsList] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   useEffect(() => { loadSettings(); }, []);
+  
+  useEffect(() => {
+    if (connected && address) {
+      fetchNotifications();
+    }
+  }, [connected, address]);
 
   const loadSettings = async () => {
     try {
@@ -51,20 +73,66 @@ export default function Profile() {
     } catch (e) { console.error('saveSetting:', e); }
   };
 
+  const fetchNotifications = async () => {
+    if (!address) return;
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/notifications/${address}?limit=20`);
+      setNotificationsList(response.data.notifications || []);
+      setUnreadCount(response.data.unread_count || 0);
+    } catch (e) {
+      console.error('fetchNotifications:', e);
+    }
+  };
+
+  const markNotificationsRead = async () => {
+    if (!address || unreadCount === 0) return;
+    try {
+      await axios.post(`${BACKEND_URL}/api/notifications/${address}/mark-read`);
+      setUnreadCount(0);
+      setNotificationsList(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (e) {
+      console.error('markNotificationsRead:', e);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    if (!address) return;
+    Alert.alert(
+      'Effacer les notifications',
+      'Voulez-vous supprimer toutes les notifications ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Effacer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await axios.delete(`${BACKEND_URL}/api/notifications/${address}/clear`);
+              setNotificationsList([]);
+              setUnreadCount(0);
+            } catch (e) {
+              console.error('clearAllNotifications:', e);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const formatAddr = (a: string) => `${a.slice(0, 6)}\u2026${a.slice(-4)}`;
 
   const copyAddress = async () => {
     if (!address) return;
     try {
       await Clipboard.setStringAsync(address);
-      Alert.alert('Copied', 'Full wallet address copied to clipboard.');
+      Alert.alert('Copié', 'Adresse wallet copiée dans le presse-papiers.');
     } catch { Alert.alert('Address', address); }
   };
 
   const handleDisconnect = () => {
-    Alert.alert('Disconnect Wallet', 'Are you sure you want to disconnect?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Disconnect', style: 'destructive', onPress: disconnectWallet },
+    Alert.alert('Déconnecter Wallet', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Déconnecter', style: 'destructive', onPress: disconnectWallet },
     ]);
   };
 
@@ -72,7 +140,25 @@ export default function Profile() {
     const next = network === 'mainnet' ? 'devnet' : 'mainnet';
     setNetwork(next);
     saveSetting('network', next);
-    Alert.alert('Network', `Switched to ${next === 'mainnet' ? 'Mainnet' : 'Devnet'}`);
+    Alert.alert('Network', `Basculé vers ${next === 'mainnet' ? 'Mainnet' : 'Devnet'}`);
+  };
+
+  const toggleNotifications = (value: boolean) => {
+    setNotifications(value);
+    saveSetting('notifications', value);
+    if (value) {
+      Alert.alert('Notifications', 'Les notifications push sont activées. Vous recevrez des alertes pour les commissions et nouvelles affiliations.');
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('fr-FR', { 
+      day: '2-digit', 
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // ─── Not connected ─────────────────────────────────────────
@@ -82,8 +168,8 @@ export default function Profile() {
         <StatusBar style="light" />
         <View style={styles.centerContainer}>
           <Ionicons name="person-circle-outline" size={72} color={COLORS.textTertiary} />
-          <Text style={styles.centerTitle}>No Wallet Connected</Text>
-          <Text style={styles.centerSubtitle}>Connect your Solana wallet to manage your account</Text>
+          <Text style={styles.centerTitle}>Wallet Non Connecté</Text>
+          <Text style={styles.centerSubtitle}>Connectez votre wallet Solana pour gérer votre compte</Text>
           <TouchableOpacity
             style={[styles.connectBtn, connecting && { opacity: 0.6 }]}
             onPress={() => { clearError(); connectWallet(); }}
@@ -95,14 +181,14 @@ export default function Profile() {
             ) : (
               <>
                 <Ionicons name="wallet" size={18} color="#fff" />
-                <Text style={styles.connectBtnText}>Connect Wallet</Text>
+                <Text style={styles.connectBtnText}>Connecter Wallet</Text>
               </>
             )}
           </TouchableOpacity>
           {error === 'NO_WALLET' && (
             <View style={styles.errorBanner}>
               <Ionicons name="warning" size={16} color={COLORS.warning} />
-              <Text style={styles.errorBannerText}>No Solana wallet detected. Install Phantom.</Text>
+              <Text style={styles.errorBannerText}>Aucun wallet Solana détecté. Installez Phantom.</Text>
             </View>
           )}
           {error && error !== 'NO_WALLET' && (
@@ -121,7 +207,7 @@ export default function Profile() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="light" />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>Account</Text>
+        <Text style={styles.pageTitle}>Compte</Text>
 
         {/* Wallet Card */}
         <View style={styles.card}>
@@ -131,27 +217,90 @@ export default function Profile() {
               <Ionicons name="copy-outline" size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.walletLabel}>Wallet Address</Text>
+          <Text style={styles.walletLabel}>Adresse Wallet</Text>
           <Text style={styles.walletAddr}>{formatAddr(address!)}</Text>
         </View>
 
         {/* Real Balances */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>On-Chain Balances</Text>
+          <Text style={styles.sectionTitle}>Soldes On-Chain</Text>
           <View style={styles.card}>
             <RowItem label="Quantum (QTM)" value={quantumBalance ? quantumBalance.amount.toLocaleString() : '0'} />
             <View style={styles.divider} />
-            <RowItem label="USD Value" value={`$${usdValue.toFixed(2)}`} color={COLORS.success} />
+            <RowItem label="Valeur USD" value={`$${usdValue.toFixed(2)}`} color={COLORS.success} />
             <View style={styles.divider} />
-            <RowItem label="EUR Value" value={`\u20ac${eurValue.toFixed(2)}`} />
+            <RowItem label="Valeur EUR" value={`\u20ac${eurValue.toFixed(2)}`} />
             <View style={styles.divider} />
-            <RowItem label="SOL Balance" value={`${solBalance.toFixed(4)} SOL`} />
+            <RowItem label="Solde SOL" value={`${solBalance.toFixed(4)} SOL`} />
           </View>
+        </View>
+
+        {/* Notifications Section */}
+        <View style={styles.section}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => {
+              setShowNotifications(!showNotifications);
+              if (!showNotifications) {
+                markNotificationsRead();
+              }
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="notifications" size={20} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>Notifications</Text>
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount}</Text>
+                </View>
+              )}
+            </View>
+            <Ionicons name={showNotifications ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+          
+          {showNotifications && (
+            <View style={styles.notificationsContainer}>
+              {notificationsList.length === 0 ? (
+                <View style={styles.emptyNotifications}>
+                  <Ionicons name="notifications-off-outline" size={32} color={COLORS.textTertiary} />
+                  <Text style={styles.emptyText}>Aucune notification</Text>
+                </View>
+              ) : (
+                <>
+                  {notificationsList.map((notif) => (
+                    <View key={notif.id} style={[styles.notificationItem, !notif.read && styles.notificationUnread]}>
+                      <View style={styles.notificationIcon}>
+                        <Ionicons 
+                          name={notif.type === 'commission_received' ? 'cash-outline' : 'notifications-outline'} 
+                          size={18} 
+                          color={notif.type === 'commission_received' ? COLORS.success : COLORS.primary} 
+                        />
+                      </View>
+                      <View style={styles.notificationContent}>
+                        <Text style={styles.notificationTitle}>{notif.title}</Text>
+                        <Text style={styles.notificationBody}>{notif.body}</Text>
+                        <Text style={styles.notificationDate}>{formatDate(notif.created_at)}</Text>
+                      </View>
+                    </View>
+                  ))}
+                  <TouchableOpacity 
+                    style={styles.clearButton}
+                    onPress={clearAllNotifications}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={COLORS.error} />
+                    <Text style={styles.clearButtonText}>Effacer tout</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <Text style={styles.sectionTitle}>Paramètres</Text>
           <View style={styles.card}>
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
@@ -160,7 +309,7 @@ export default function Profile() {
               </View>
               <Switch
                 value={notifications}
-                onValueChange={(v) => { setNotifications(v); saveSetting('notifications', v); }}
+                onValueChange={toggleNotifications}
                 trackColor={{ false: COLORS.surfaceElevated, true: COLORS.primary + '50' }}
                 thumbColor={notifications ? COLORS.primary : COLORS.textTertiary}
               />
@@ -169,7 +318,7 @@ export default function Profile() {
             <View style={styles.settingRow}>
               <View style={styles.settingLeft}>
                 <Ionicons name="pulse-outline" size={18} color={COLORS.textSecondary} />
-                <Text style={styles.settingLabel}>Price Alerts</Text>
+                <Text style={styles.settingLabel}>Alertes de Prix</Text>
               </View>
               <Switch
                 value={priceAlerts}
@@ -182,7 +331,7 @@ export default function Profile() {
             <TouchableOpacity style={styles.settingRow} onPress={toggleNetwork} activeOpacity={0.7}>
               <View style={styles.settingLeft}>
                 <Ionicons name="globe-outline" size={18} color={COLORS.textSecondary} />
-                <Text style={styles.settingLabel}>Network</Text>
+                <Text style={styles.settingLabel}>Réseau</Text>
               </View>
               <View style={styles.networkBadge}>
                 <View style={[styles.networkDot, { backgroundColor: network === 'mainnet' ? COLORS.success : COLORS.warning }]} />
@@ -196,7 +345,7 @@ export default function Profile() {
         {/* Disconnect */}
         <TouchableOpacity style={styles.disconnectBtn} onPress={handleDisconnect} activeOpacity={0.7}>
           <Ionicons name="log-out-outline" size={20} color={COLORS.error} />
-          <Text style={styles.disconnectText}>Disconnect Wallet</Text>
+          <Text style={styles.disconnectText}>Déconnecter Wallet</Text>
         </TouchableOpacity>
 
         <View style={styles.footer}>
