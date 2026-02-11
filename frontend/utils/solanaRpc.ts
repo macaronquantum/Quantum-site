@@ -165,4 +165,4 @@ export async function getUsdToEurRate(): Promise<number> {
 }
 
 // ─── Constants ──────────────────────────────────────────────
-export { QUANTUM_MINT, QUANTUM_PRICE_USD };
+export { QUANTUM_MINT, QUANTUM_PRICE_USD, SOLSCAN_TOKEN_URL };
