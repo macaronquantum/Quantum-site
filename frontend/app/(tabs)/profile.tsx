@@ -97,25 +97,20 @@ export default function Profile() {
 
   const clearAllNotifications = async () => {
     if (!address) return;
-    Alert.alert(
+    showConfirm(
       'Effacer les notifications',
       'Voulez-vous supprimer toutes les notifications ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Effacer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await axios.delete(`${BACKEND_URL}/api/notifications/${address}/clear`);
-              setNotificationsList([]);
-              setUnreadCount(0);
-            } catch (e) {
-              console.error('clearAllNotifications:', e);
-            }
-          }
+      async () => {
+        try {
+          await axios.delete(`${BACKEND_URL}/api/notifications/${address}/clear`);
+          setNotificationsList([]);
+          setUnreadCount(0);
+        } catch (e) {
+          console.error('clearAllNotifications:', e);
         }
-      ]
+      },
+      'Effacer',
+      'Annuler'
     );
   };
 
