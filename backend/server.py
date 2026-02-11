@@ -1364,7 +1364,7 @@ async def get_presale_status(session_id: str):
             }
         
         # Initialize Stripe to check status
-        webhook_url = "https://mlm-network-20.preview.emergentagent.com/api/webhook/stripe"
+        webhook_url = "https://expo-mobile-test.preview.emergentagent.com/api/webhook/stripe"
         stripe_checkout = StripeCheckout(
             api_key=STRIPE_API_KEY,
             webhook_url=webhook_url
