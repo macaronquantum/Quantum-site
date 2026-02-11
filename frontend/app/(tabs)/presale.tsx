@@ -153,7 +153,10 @@ export default function PreSale() {
         }
       }
     } catch (error: any) {
-      showAlert('Erreur', error.response?.data?.detail || 'Échec du traitement. Veuillez réessayer.');
+      console.error('[Presale] Purchase error:', error?.message, error?.response?.status, error?.response?.data);
+      const detail = error?.response?.data?.detail;
+      const msg = detail || error?.message || 'Echec du traitement. Veuillez reessayer.';
+      showAlert('Erreur', msg);
     } finally {
       setLoading(false);
     }
