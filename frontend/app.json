@@ -2,7 +2,6 @@
   "expo": {
     "name": "Quantum",
     "slug": "quantum-wallet",
-    "owner": "macaron11111",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -11,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.macaron11111.quantum"
+      "bundleIdentifier": "com.quantum.wallet"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +18,7 @@
         "backgroundColor": "#000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.macaron11111.quantum"
+      "package": "com.quantum.wallet"
     },
     "web": {
       "bundler": "metro",
@@ -41,11 +40,6 @@
     ],
     "experiments": {
       "typedRoutes": true
-    },
-    "extra": {
-      "eas": {
-        "projectId": "quantum-wallet"
-      }
     }
   }
 }
