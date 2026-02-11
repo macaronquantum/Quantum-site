@@ -128,9 +128,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const connectCalled = useRef(false);
   const clearError = useCallback(() => setError(null), []);
 
-  // Set wallet connected
+  // Set wallet connected (internal use)
   const setWalletConnected = useCallback((addr: string) => {
     console.log('[Wallet] CONNECTED:', addr);
+    saveWallet(addr);
+    setAddress(addr);
+    setConnected(true);
+    setConnecting(false);
+    connectCalled.current = false;
+  }, []);
+
+  // Public method to set connected address (for callback page)
+  const setConnectedAddress = useCallback((addr: string) => {
+    console.log('[Wallet] Setting connected address from callback:', addr);
     saveWallet(addr);
     setAddress(addr);
     setConnected(true);
