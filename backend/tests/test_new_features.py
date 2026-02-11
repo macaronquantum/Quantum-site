@@ -13,7 +13,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://expo-mobile-test.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://fiat-to-usdc.preview.emergentagent.com').rstrip('/')
 
 # ============== LEVEL TRANSACTION TESTS ==============
 
