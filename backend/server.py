@@ -818,40 +818,126 @@ class PresaleConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+# On-chain presale cache (5 min TTL)
+_presale_onchain_cache: Dict = {}
+_presale_cache_ts: float = 0
+PRESALE_CACHE_TTL = 300  # 5 minutes
+
+
+async def get_sol_price_usd() -> float:
+    """Get current SOL price in USD from CoinGecko"""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                "https://api.coingecko.com/api/v3/simple/price",
+                params={"ids": "solana", "vs_currencies": "usd"},
+            )
+            data = resp.json()
+            return data.get("solana", {}).get("usd", 0)
+    except Exception:
+        return 0
+
+
+async def get_token_holders_count() -> int:
+    """Count holders of the Quantum token on-chain"""
+    try:
+        result = await solana_rpc_call("getTokenLargestAccounts", [QUANTUM_MINT])
+        accounts = result.get("value", []) if isinstance(result, dict) else []
+        return len([a for a in accounts if int(a.get("amount", "0")) > 0])
+    except Exception:
+        return 0
+
+
+async def get_total_sol_received() -> float:
+    """Sum all incoming SOL transfers to the presale wallet"""
+    total_lamports = 0
+    try:
+        # Get transaction signatures (up to 1000 most recent)
+        sigs_result = await solana_rpc_call("getSignaturesForAddress", [
+            SOLANA_WALLET_ADDRESS,
+            {"limit": 1000}
+        ])
+        signatures = sigs_result if isinstance(sigs_result, list) else []
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            for sig_info in signatures:
+                sig = sig_info.get("signature")
+                if not sig or sig_info.get("err"):
+                    continue
+                # Get parsed transaction
+                for endpoint in SOLANA_RPC_ENDPOINTS:
+                    try:
+                        resp = await client.post(endpoint, json={
+                            "jsonrpc": "2.0", "id": 1,
+                            "method": "getTransaction",
+                            "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}],
+                        })
+                        tx_data = resp.json().get("result")
+                        if not tx_data or not tx_data.get("meta"):
+                            break
+
+                        meta = tx_data["meta"]
+                        accounts = tx_data["transaction"]["message"]["accountKeys"]
+
+                        # Find wallet index
+                        wallet_idx = None
+                        for i, acc in enumerate(accounts):
+                            pubkey = acc.get("pubkey", acc) if isinstance(acc, dict) else acc
+                            if pubkey == SOLANA_WALLET_ADDRESS:
+                                wallet_idx = i
+                                break
+
+                        if wallet_idx is not None:
+                            pre = meta["preBalances"][wallet_idx]
+                            post = meta["postBalances"][wallet_idx]
+                            diff = post - pre
+                            if diff > 0:
+                                total_lamports += diff
+                        break  # success, no need to try next endpoint
+                    except Exception:
+                        continue
+    except Exception as e:
+        print(f"Error fetching SOL received: {e}")
+
+    return total_lamports / 1e9  # Convert lamports to SOL
+
+
 @app.get("/api/presale/progress")
 async def get_presale_progress():
-    """Get presale progress (public endpoint)"""
-    config = await presale_config_collection.find_one(
-        {"config_id": "main"},
-        {"_id": 0}
-    )
-    
-    if not config:
-        # Default values
-        config = {
-            "total_raised": 0,
-            "goal": 2000000,  # $2M
-            "start_date": None,
-            "end_date": None,
-            "is_active": True,
-            "participants": 0
-        }
-    
-    # Calculate progress percentage
-    goal = config.get("goal", 2000000)
-    total_raised = config.get("total_raised", 0)
-    progress_percentage = (total_raised / goal * 100) if goal > 0 else 0
-    
-    return {
-        "total_raised": total_raised,
+    """Get presale progress from on-chain data (cached 5 min)"""
+    global _presale_onchain_cache, _presale_cache_ts
+
+    import time
+    now = time.time()
+
+    if _presale_onchain_cache and (now - _presale_cache_ts) < PRESALE_CACHE_TTL:
+        return _presale_onchain_cache
+
+    # Fetch on-chain data
+    sol_price = await get_sol_price_usd()
+    total_sol = await get_total_sol_received()
+    holders = await get_token_holders_count()
+
+    total_raised_usd = total_sol * sol_price if sol_price > 0 else 0
+    goal = 2000000  # $2M
+
+    result = {
+        "total_raised": round(total_raised_usd, 2),
         "goal": goal,
-        "progress_percentage": min(progress_percentage, 100),
-        "remaining": max(goal - total_raised, 0),
-        "start_date": config.get("start_date"),
-        "end_date": config.get("end_date"),
-        "is_active": config.get("is_active", True),
-        "participants": config.get("participants", 0)
+        "progress_percentage": min((total_raised_usd / goal * 100), 100) if goal > 0 else 0,
+        "remaining": round(max(goal - total_raised_usd, 0), 2),
+        "participants": holders,
+        "is_active": True,
+        "sol_received": round(total_sol, 4),
+        "sol_price_usd": sol_price,
+        "start_date": None,
+        "end_date": None,
     }
+
+    _presale_onchain_cache = result
+    _presale_cache_ts = now
+
+    return result
 
 
 @app.put("/api/presale/config")
