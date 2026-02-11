@@ -161,6 +161,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
     
     console.log('[Wallet] Processing Phantom callback...');
+    console.log('[Wallet] URL:', url.substring(0, 100) + '...');
     
     const params = new URLSearchParams(window.location.search);
     
@@ -184,13 +185,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return false;
     }
     
-    // Get keypair from storage
-    const keypairJson = getFromStorage(KEYPAIR_KEY);
+    // Get keypair from storage - NOW ASYNC!
+    const keypairJson = await getFromStorage(KEYPAIR_KEY);
     if (!keypairJson) {
-      console.log('[Wallet] No keypair in storage');
+      console.log('[Wallet] ERROR: No keypair in storage after redirect');
       setError('Connection failed. Please try again.');
       return false;
     }
+    
+    console.log('[Wallet] Keypair found, decrypting...');
     
     try {
       await ensureCrypto();
@@ -214,7 +217,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
       
       // SUCCESS - persist publicKey
-      clearFromStorage(KEYPAIR_KEY);
+      await clearFromStorage(KEYPAIR_KEY);
       setWalletConnected(payload.public_key);
       return true;
       
