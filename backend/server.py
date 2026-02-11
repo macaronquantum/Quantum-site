@@ -4,9 +4,12 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
+from enum import Enum
 import os
 import uuid
+import secrets
+import string
 from dotenv import load_dotenv
 from emergentintegrations.payments.stripe.checkout import (
     StripeCheckout,
@@ -30,7 +33,7 @@ app.add_middleware(
 )
 
 # MongoDB Configuration
-MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+MONGO_URL = os.getenv("MONGO_URL")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client.quantum_db
 
@@ -38,7 +41,12 @@ db = client.quantum_db
 presale_purchases = db.presale_purchases
 payment_transactions = db.payment_transactions
 referral_data = db.referral_data
-wallet_sessions = db.wallet_sessions  # NEW: For storing temporary keypairs
+wallet_sessions = db.wallet_sessions
+
+# NEW: MLM Affiliate Collections
+users_collection = db.users
+affiliate_relations = db.affiliate_relations
+affiliate_commissions = db.affiliate_commissions
 
 # Stripe Configuration
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
@@ -47,6 +55,16 @@ SOLANA_WALLET_ADDRESS = "2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i"
 # Token Configuration
 TOKEN_PRICE = 2.5  # USD per token
 MIN_PURCHASE = 100  # Minimum tokens
+
+# MLM Commission Configuration (5 levels)
+COMMISSION_RATES = {
+    1: 0.20,   # 20% Level 1 (direct)
+    2: 0.10,   # 10% Level 2
+    3: 0.05,   # 5% Level 3
+    4: 0.025,  # 2.5% Level 4
+    5: 0.01,   # 1% Level 5
+}
+MAX_AFFILIATE_LEVEL = 5
 
 
 # ============== WALLET SESSION MODELS ==============
