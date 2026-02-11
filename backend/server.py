@@ -818,10 +818,10 @@ class PresaleConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-# On-chain presale cache (5 min TTL)
+# On-chain presale cache (10 min TTL)
 _presale_onchain_cache: Dict = {}
 _presale_cache_ts: float = 0
-PRESALE_CACHE_TTL = 300  # 5 minutes
+PRESALE_CACHE_TTL = 600  # 10 minutes
 
 
 async def get_sol_price_usd() -> float:
@@ -840,31 +840,41 @@ async def get_sol_price_usd() -> float:
 
 async def get_token_holders_count() -> int:
     """Count holders of the Quantum token on-chain"""
-    try:
-        result = await solana_rpc_call("getTokenLargestAccounts", [QUANTUM_MINT])
-        accounts = result.get("value", []) if isinstance(result, dict) else []
-        return len([a for a in accounts if int(a.get("amount", "0")) > 0])
-    except Exception:
-        return 0
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for endpoint in SOLANA_RPC_ENDPOINTS:
+            try:
+                resp = await client.post(endpoint, json={
+                    "jsonrpc": "2.0", "id": 1,
+                    "method": "getTokenLargestAccounts",
+                    "params": [QUANTUM_MINT],
+                })
+                data = resp.json()
+                if "error" in data:
+                    continue
+                accounts = data.get("result", {}).get("value", [])
+                return len([a for a in accounts if float(a.get("uiAmount", 0) or 0) > 0])
+            except Exception:
+                continue
+    return 0
 
 
 async def get_total_sol_received() -> float:
-    """Sum all incoming SOL transfers to the presale wallet"""
+    """Sum all incoming SOL transfers to the presale wallet, rate-limit friendly"""
     total_lamports = 0
     try:
-        # Get transaction signatures (up to 1000 most recent)
+        # Get transaction signatures
         sigs_result = await solana_rpc_call("getSignaturesForAddress", [
-            SOLANA_WALLET_ADDRESS,
-            {"limit": 1000}
+            SOLANA_WALLET_ADDRESS, {"limit": 1000}
         ])
         signatures = sigs_result if isinstance(sigs_result, list) else []
 
+        import asyncio
         async with httpx.AsyncClient(timeout=15.0) as client:
             for sig_info in signatures:
                 sig = sig_info.get("signature")
                 if not sig or sig_info.get("err"):
                     continue
-                # Get parsed transaction
+
                 for endpoint in SOLANA_RPC_ENDPOINTS:
                     try:
                         resp = await client.post(endpoint, json={
@@ -872,39 +882,42 @@ async def get_total_sol_received() -> float:
                             "method": "getTransaction",
                             "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}],
                         })
-                        tx_data = resp.json().get("result")
+                        data = resp.json()
+                        if "error" in data:
+                            if data["error"].get("code") == 429:
+                                await asyncio.sleep(1)  # Rate limit backoff
+                                continue
+                            break
+                        tx_data = data.get("result")
                         if not tx_data or not tx_data.get("meta"):
                             break
 
                         meta = tx_data["meta"]
-                        accounts = tx_data["transaction"]["message"]["accountKeys"]
+                        keys = tx_data["transaction"]["message"]["accountKeys"]
+                        prebals = meta.get("preBalances", [])
+                        postbals = meta.get("postBalances", [])
 
-                        # Find wallet index
-                        wallet_idx = None
-                        for i, acc in enumerate(accounts):
+                        for i, acc in enumerate(keys):
                             pubkey = acc.get("pubkey", acc) if isinstance(acc, dict) else acc
-                            if pubkey == SOLANA_WALLET_ADDRESS:
-                                wallet_idx = i
+                            if pubkey == SOLANA_WALLET_ADDRESS and i < len(prebals) and i < len(postbals):
+                                diff = postbals[i] - prebals[i]
+                                if diff > 0:
+                                    total_lamports += diff
                                 break
-
-                        if wallet_idx is not None:
-                            pre = meta["preBalances"][wallet_idx]
-                            post = meta["postBalances"][wallet_idx]
-                            diff = post - pre
-                            if diff > 0:
-                                total_lamports += diff
-                        break  # success, no need to try next endpoint
+                        break  # success
                     except Exception:
                         continue
+                # Small delay to avoid rate limiting
+                await asyncio.sleep(0.3)
     except Exception as e:
         print(f"Error fetching SOL received: {e}")
 
-    return total_lamports / 1e9  # Convert lamports to SOL
+    return total_lamports / 1e9
 
 
 @app.get("/api/presale/progress")
 async def get_presale_progress():
-    """Get presale progress from on-chain data (cached 5 min)"""
+    """Get presale progress from on-chain data (cached 10 min)"""
     global _presale_onchain_cache, _presale_cache_ts
 
     import time
@@ -913,10 +926,10 @@ async def get_presale_progress():
     if _presale_onchain_cache and (now - _presale_cache_ts) < PRESALE_CACHE_TTL:
         return _presale_onchain_cache
 
-    # Fetch on-chain data
+    # Fetch on-chain data (run in parallel where possible)
     sol_price = await get_sol_price_usd()
-    total_sol = await get_total_sol_received()
     holders = await get_token_holders_count()
+    total_sol = await get_total_sol_received()
 
     total_raised_usd = total_sol * sol_price if sol_price > 0 else 0
     goal = 2000000  # $2M
