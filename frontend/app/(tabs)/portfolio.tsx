@@ -372,4 +372,40 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: FONT_SIZES.sm, color: COLORS.textSecondary },
   infoValue: { fontSize: FONT_SIZES.sm, fontWeight: FONT_WEIGHTS.semibold, color: COLORS.textPrimary },
   infoDivider: { height: 1, backgroundColor: COLORS.divider },
+  // Debug error card for detailed error display
+  debugErrorCard: {
+    backgroundColor: '#1a0000',
+    borderRadius: BORDER_RADIUS.lg,
+    padding: SPACING.lg,
+    borderWidth: 2,
+    borderColor: COLORS.error,
+    marginTop: SPACING.lg,
+    width: '100%',
+  },
+  debugErrorTitle: {
+    fontSize: FONT_SIZES.lg,
+    fontWeight: FONT_WEIGHTS.bold,
+    color: COLORS.error,
+    marginBottom: SPACING.sm,
+  },
+  debugErrorText: {
+    fontSize: FONT_SIZES.sm,
+    color: '#ffcccc',
+    lineHeight: 20,
+    fontFamily: 'monospace',
+    marginBottom: SPACING.md,
+  },
+  retryButton: {
+    backgroundColor: COLORS.error,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.sm,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: FONT_SIZES.sm,
+    fontWeight: FONT_WEIGHTS.semibold,
+  },
 });
