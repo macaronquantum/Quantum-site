@@ -128,6 +128,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [loadingBalances, setLoadingBalances] = useState(false);
   
   const connectCalled = useRef(false);
+  const pendingKeypair = useRef<{ pub: Uint8Array; sec: Uint8Array } | null>(null);
   const clearError = useCallback(() => setError(null), []);
 
   // Set wallet connected (internal use)
