@@ -1,8 +1,8 @@
 import { Platform, Alert } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
 /**
  * Cross-platform alert that works on both web and native.
- * On web, uses window.alert/confirm since RN Alert.alert can be unreliable.
  */
 export function showAlert(title: string, message?: string) {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -33,38 +33,21 @@ export function showConfirm(
 
 /**
  * Copy text to clipboard (web + native compatible).
- * Returns true on success, false on failure.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
-  // Web: use navigator.clipboard directly (most reliable)
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && navigator?.clipboard) {
-    try {
+  try {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
-      // Fallback: textarea trick for older browsers
-      try {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        return true;
-      } catch {
-        return false;
-      }
     }
-  }
-
-  // Native: use expo-clipboard
-  try {
-    const Clipboard = require('expo-clipboard');
     await Clipboard.setStringAsync(text);
     return true;
   } catch {
-    return false;
+    try {
+      await Clipboard.setStringAsync(text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
