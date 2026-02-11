@@ -38,6 +38,73 @@ async function ensureCrypto() {
 const WALLET_KEY = 'quantum_wallet_address';
 const KEYPAIR_KEY = 'quantum_dapp_keypair';
 
+// ─── Robust storage (multiple fallbacks for mobile) ─────────
+function storeData(key: string, value: string): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  
+  try {
+    // localStorage
+    window.localStorage.setItem(key, value);
+    // sessionStorage (survives better on some browsers)
+    window.sessionStorage.setItem(key, value);
+    // Cookie (most reliable for redirects)
+    document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=3600; SameSite=Lax`;
+    console.log('[Storage] Data stored in localStorage, sessionStorage, and cookie');
+  } catch (e) {
+    console.error('[Storage] Store error:', e);
+  }
+}
+
+function getData(key: string): string | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+  
+  let data: string | null = null;
+  
+  // Try localStorage first
+  try {
+    data = window.localStorage.getItem(key);
+    if (data) {
+      console.log('[Storage] Found in localStorage');
+      return data;
+    }
+  } catch (e) {}
+  
+  // Try sessionStorage
+  try {
+    data = window.sessionStorage.getItem(key);
+    if (data) {
+      console.log('[Storage] Found in sessionStorage');
+      return data;
+    }
+  } catch (e) {}
+  
+  // Try cookie
+  try {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, ...valueParts] = cookie.trim().split('=');
+      if (name === key) {
+        data = decodeURIComponent(valueParts.join('='));
+        console.log('[Storage] Found in cookie');
+        return data;
+      }
+    }
+  } catch (e) {}
+  
+  console.log('[Storage] Data not found in any storage');
+  return null;
+}
+
+function removeData(key: string): void {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+  
+  try {
+    window.localStorage.removeItem(key);
+    window.sessionStorage.removeItem(key);
+    document.cookie = `${key}=; path=/; max-age=0`;
+  } catch (e) {}
+}
+
 // ─── Types ──────────────────────────────────────────────────
 export interface WalletState {
   connected: boolean;
