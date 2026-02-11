@@ -123,10 +123,7 @@ export default function PreSale() {
     setLoading(true);
 
     try {
-      const hostUrl =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'https://expo-mobile-test.preview.emergentagent.com';
+      const hostUrl = BACKEND_URL || 'https://expo-mobile-test.preview.emergentagent.com';
 
       const purchaseData = {
         firstName: formData.firstName,
