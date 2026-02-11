@@ -472,7 +472,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         sec: Array.from(kp.secretKey),
       });
       
-      console.log('[Wallet] Saving keypair to storage + URL...');
+      console.log('[Wallet] Saving keypair to storage + URL hash...');
       await saveToStorage(KEYPAIR_KEY, keypairJson);
       
       const dappPubKey = bs58.encode(kp.publicKey);
@@ -480,11 +480,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         ? window.location.origin + window.location.pathname
         : Linking.createURL('phantom-callback');
       
-      // CRITICAL FIX: Include keypair in redirect URL to survive browser storage clearing
-      // This is safe because it's a temporary keypair only valid for this session
-      const redirectUrl = `${baseUrl}?kp=${encodeURIComponent(keypairJson)}`;
+      // CRITICAL FIX: Use hash fragment (#) instead of query param (?)
+      // Hash fragments are preserved across redirects while query params may be stripped
+      const redirectUrl = `${baseUrl}#kp=${encodeURIComponent(keypairJson)}`;
       
-      console.log('[Wallet] Redirect URL with keypair embedded');
+      console.log('[Wallet] Redirect URL with keypair in hash fragment');
       
       const params = new URLSearchParams({
         dapp_encryption_public_key: dappPubKey,
