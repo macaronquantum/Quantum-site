@@ -689,10 +689,20 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
         # Calculate total (server-side only)
         total_price = float(purchase.tokenAmount) * TOKEN_PRICE
         
+        # Register user in MLM system if not already registered
+        existing_user = await get_user_by_wallet(purchase.walletAddress)
+        if not existing_user:
+            await register_affiliate(UserCreate(
+                wallet_public_key=purchase.walletAddress,
+                referral_code_used=purchase.referralCode
+            ))
+        
         # CRYPTO PAYMENT - Return Solana address
         if purchase.paymentMethod == "crypto":
             # Store purchase as pending
+            purchase_id = str(uuid.uuid4())
             purchase_doc = {
+                "purchase_id": purchase_id,
                 "firstName": purchase.firstName,
                 "lastName": purchase.lastName,
                 "email": purchase.email,
@@ -703,8 +713,8 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 "paymentStatus": "pending_manual_transfer",
                 "solanaAddress": SOLANA_WALLET_ADDRESS,
                 "referralCode": purchase.referralCode,
-                "createdAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow()
+                "createdAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc)
             }
             
             result = await presale_purchases.insert_one(purchase_doc)
