@@ -232,18 +232,39 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const nonce = params.get('nonce');
     const data = params.get('data');
     
-    // Clean URL
-    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
-    
     if (!phantomPubKey || !nonce || !data) {
+      // Clean URL
+      window.history.replaceState({}, '', window.location.origin + window.location.pathname);
       setError('ERREUR: Paramètres manquants dans URL Phantom (phantom_encryption_public_key, nonce, ou data)');
       return false;
     }
     
-    console.log('[Wallet] Params OK, checking storage for keypair...');
+    console.log('[Wallet] Params OK, checking for keypair...');
     
-    // Get keypair
-    const keypairJson = await getFromStorage(KEYPAIR_KEY);
+    // SOLUTION: Get keypair from URL first (survives browser storage clearing)
+    let keypairJson = params.get('kp');
+    
+    if (keypairJson) {
+      try {
+        // Decode from URL-safe base64
+        keypairJson = decodeURIComponent(keypairJson);
+        console.log('[Wallet] Keypair found in URL parameter!');
+      } catch (e) {
+        console.log('[Wallet] Failed to decode keypair from URL');
+        keypairJson = null;
+      }
+    }
+    
+    // Fallback to storage if not in URL
+    if (!keypairJson) {
+      keypairJson = await getFromStorage(KEYPAIR_KEY);
+      if (keypairJson) {
+        console.log('[Wallet] Keypair found in storage');
+      }
+    }
+    
+    // Clean URL now (after extracting keypair)
+    window.history.replaceState({}, '', window.location.origin + window.location.pathname);
     
     if (!keypairJson) {
       // Build detailed error
