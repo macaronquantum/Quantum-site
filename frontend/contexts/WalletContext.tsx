@@ -109,6 +109,7 @@ const WalletContext = createContext<WalletState>({
   connectWallet: async () => {},
   disconnectWallet: async () => {},
   refreshBalances: async () => {},
+  setConnectedAddress: () => {}, // NEW
 });
 
 export function WalletProvider({ children }: { children: ReactNode }) {
