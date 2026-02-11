@@ -363,12 +363,25 @@ export default function Portfolio() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, copyable, fullValue }: { label: string; value: string; copyable?: boolean; fullValue?: string }) {
+  const handleCopy = async () => {
+    if (!copyable) return;
+    try {
+      await Clipboard.setStringAsync(fullValue || value);
+      Alert.alert('Copié', `${label} copié dans le presse-papiers`);
+    } catch {
+      Alert.alert(label, fullValue || value);
+    }
+  };
+
   return (
-    <View style={styles.infoRow}>
+    <TouchableOpacity style={styles.infoRow} onPress={copyable ? handleCopy : undefined} activeOpacity={copyable ? 0.7 : 1} disabled={!copyable}>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <Text style={styles.infoValue}>{value}</Text>
+        {copyable && <Ionicons name="copy-outline" size={14} color={COLORS.textTertiary} />}
+      </View>
+    </TouchableOpacity>
   );
 }
 
