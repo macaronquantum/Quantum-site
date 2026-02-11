@@ -896,6 +896,76 @@ async def increment_presale_raised(amount: float):
     return {"success": True}
 
 
+# ============== SOLANA BALANCE PROXY ==============
+
+async def solana_rpc_call(method: str, params: list) -> dict:
+    """Make a Solana RPC call via backend (avoids browser CORS/rate-limit)"""
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        for endpoint in SOLANA_RPC_ENDPOINTS:
+            try:
+                resp = await client.post(endpoint, json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": method,
+                    "params": params,
+                })
+                data = resp.json()
+                if "error" in data:
+                    continue
+                return data.get("result", {})
+            except Exception:
+                continue
+    return {}
+
+
+@app.get("/api/solana/balance/{wallet}")
+async def get_solana_balance(wallet: str):
+    """Proxy endpoint: fetch SOL + Quantum token balance from Solana mainnet"""
+    sol_balance = 0.0
+    quantum_amount = 0.0
+    quantum_raw = "0"
+    quantum_decimals = 0
+    quantum_ui_string = "0"
+
+    # SOL balance
+    try:
+        result = await solana_rpc_call("getBalance", [wallet])
+        lamports = result.get("value", 0) if isinstance(result, dict) else 0
+        sol_balance = lamports / 1e9
+    except Exception:
+        pass
+
+    # Quantum SPL token balance
+    try:
+        result = await solana_rpc_call("getTokenAccountsByOwner", [
+            wallet,
+            {"mint": QUANTUM_MINT},
+            {"encoding": "jsonParsed"},
+        ])
+        accounts = result.get("value", []) if isinstance(result, dict) else []
+        if accounts:
+            token_info = accounts[0]["account"]["data"]["parsed"]["info"]["tokenAmount"]
+            quantum_amount = token_info.get("uiAmount", 0) or 0
+            quantum_raw = token_info.get("amount", "0")
+            quantum_decimals = token_info.get("decimals", 0)
+            quantum_ui_string = token_info.get("uiAmountString", "0")
+    except Exception:
+        pass
+
+    return {
+        "wallet": wallet,
+        "sol_balance": sol_balance,
+        "quantum": {
+            "amount": quantum_amount,
+            "rawAmount": quantum_raw,
+            "decimals": quantum_decimals,
+            "uiAmountString": quantum_ui_string,
+        },
+        "quantum_mint": QUANTUM_MINT,
+        "price_usd": TOKEN_PRICE,
+    }
+
+
 # ============== LEGACY MODELS (for backward compatibility) ==============
 
 class PreSalePurchaseRequest(BaseModel):
