@@ -39,34 +39,52 @@ async function ensureCrypto() {
 const WALLET_KEY = 'quantum_wallet';
 const KEYPAIR_KEY = 'quantum_keypair';
 
-function saveToStorage(key: string, value: string) {
+async function saveToStorage(key: string, value: string): Promise<void> {
+  console.log(`[Storage] Saving ${key}...`);
+  // Save to ALL storage mechanisms
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try { localStorage.setItem(key, value); } catch {}
-    try { sessionStorage.setItem(key, value); } catch {}
+    try { localStorage.setItem(key, value); console.log(`[Storage] Saved to localStorage`); } catch (e) { console.log('[Storage] localStorage failed:', e); }
+    try { sessionStorage.setItem(key, value); console.log(`[Storage] Saved to sessionStorage`); } catch (e) { console.log('[Storage] sessionStorage failed:', e); }
   }
-  AsyncStorage.setItem(key, value).catch(() => {});
+  try { 
+    await AsyncStorage.setItem(key, value); 
+    console.log(`[Storage] Saved to AsyncStorage`); 
+  } catch (e) { 
+    console.log('[Storage] AsyncStorage failed:', e); 
+  }
 }
 
-function getFromStorage(key: string): string | null {
+async function getFromStorage(key: string): Promise<string | null> {
+  console.log(`[Storage] Reading ${key}...`);
+  
+  // Try localStorage first
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     try { 
       const v = localStorage.getItem(key); 
-      if (v) return v; 
+      if (v) { console.log(`[Storage] Found in localStorage`); return v; }
     } catch {}
     try { 
       const v = sessionStorage.getItem(key); 
-      if (v) return v; 
+      if (v) { console.log(`[Storage] Found in sessionStorage`); return v; }
     } catch {}
   }
+  
+  // CRITICAL: Check AsyncStorage as fallback (mobile browsers clear localStorage on app switch)
+  try {
+    const v = await AsyncStorage.getItem(key);
+    if (v) { console.log(`[Storage] Found in AsyncStorage`); return v; }
+  } catch {}
+  
+  console.log(`[Storage] ${key} not found anywhere`);
   return null;
 }
 
-function clearFromStorage(key: string) {
+async function clearFromStorage(key: string): Promise<void> {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     try { localStorage.removeItem(key); } catch {}
     try { sessionStorage.removeItem(key); } catch {}
   }
-  AsyncStorage.removeItem(key).catch(() => {});
+  try { await AsyncStorage.removeItem(key); } catch {}
 }
 
 // ─── Types ──────────────────────────────────────────────────
