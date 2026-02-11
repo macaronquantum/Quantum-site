@@ -41,14 +41,39 @@ const KEYPAIR_KEY = 'quantum_keypair';
 
 async function saveToStorage(key: string, value: string): Promise<void> {
   console.log(`[Storage] Saving ${key}...`);
+  
   // Save to ALL storage mechanisms
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    try { localStorage.setItem(key, value); console.log(`[Storage] Saved to localStorage`); } catch (e) { console.log('[Storage] localStorage failed:', e); }
-    try { sessionStorage.setItem(key, value); console.log(`[Storage] Saved to sessionStorage`); } catch (e) { console.log('[Storage] sessionStorage failed:', e); }
+    // localStorage
+    try { 
+      localStorage.setItem(key, value); 
+      console.log(`[Storage] ✓ Saved to localStorage`); 
+    } catch (e) { 
+      console.log('[Storage] localStorage failed:', e); 
+    }
+    
+    // sessionStorage
+    try { 
+      sessionStorage.setItem(key, value); 
+      console.log(`[Storage] ✓ Saved to sessionStorage`); 
+    } catch (e) { 
+      console.log('[Storage] sessionStorage failed:', e); 
+    }
+    
+    // Cookie (MOST RELIABLE for mobile redirects!)
+    try {
+      // Set cookie with 1 hour expiry, SameSite=Lax for redirect compatibility
+      document.cookie = `${key}=${encodeURIComponent(value)}; path=/; max-age=3600; SameSite=Lax`;
+      console.log(`[Storage] ✓ Saved to cookie`);
+    } catch (e) {
+      console.log('[Storage] cookie failed:', e);
+    }
   }
+  
+  // AsyncStorage
   try { 
     await AsyncStorage.setItem(key, value); 
-    console.log(`[Storage] Saved to AsyncStorage`); 
+    console.log(`[Storage] ✓ Saved to AsyncStorage`); 
   } catch (e) { 
     console.log('[Storage] AsyncStorage failed:', e); 
   }
@@ -57,25 +82,39 @@ async function saveToStorage(key: string, value: string): Promise<void> {
 async function getFromStorage(key: string): Promise<string | null> {
   console.log(`[Storage] Reading ${key}...`);
   
-  // Try localStorage first
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // Try localStorage
     try { 
       const v = localStorage.getItem(key); 
-      if (v) { console.log(`[Storage] Found in localStorage`); return v; }
+      if (v) { console.log(`[Storage] ✓ Found in localStorage`); return v; }
     } catch {}
+    
+    // Try sessionStorage  
     try { 
       const v = sessionStorage.getItem(key); 
-      if (v) { console.log(`[Storage] Found in sessionStorage`); return v; }
+      if (v) { console.log(`[Storage] ✓ Found in sessionStorage`); return v; }
+    } catch {}
+    
+    // Try cookie (MOST RELIABLE for mobile!)
+    try {
+      const cookies = document.cookie.split(';');
+      for (const cookie of cookies) {
+        const [name, ...valueParts] = cookie.trim().split('=');
+        if (name === key && valueParts.length > 0) {
+          const v = decodeURIComponent(valueParts.join('='));
+          if (v) { console.log(`[Storage] ✓ Found in cookie`); return v; }
+        }
+      }
     } catch {}
   }
   
-  // CRITICAL: Check AsyncStorage as fallback (mobile browsers clear localStorage on app switch)
+  // Try AsyncStorage (last resort)
   try {
     const v = await AsyncStorage.getItem(key);
-    if (v) { console.log(`[Storage] Found in AsyncStorage`); return v; }
+    if (v) { console.log(`[Storage] ✓ Found in AsyncStorage`); return v; }
   } catch {}
   
-  console.log(`[Storage] ${key} not found anywhere`);
+  console.log(`[Storage] ✗ ${key} not found anywhere`);
   return null;
 }
 
