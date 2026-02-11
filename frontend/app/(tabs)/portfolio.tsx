@@ -352,7 +352,7 @@ export default function Portfolio() {
             <View style={styles.infoDivider} />
             <InfoRow label="Token Mint" value="4KsZ\u2026ixtLc" copyable={true} fullValue={QUANTUM_MINT} />
             <View style={styles.infoDivider} />
-            <InfoRow label="Price Source" value="Fixed $2.50 (Pre-TGE)" />
+            <InfoRow label="Price Source" value="Fixed $0.20 (Pre-TGE)" />
           </View>
         </View>
 
