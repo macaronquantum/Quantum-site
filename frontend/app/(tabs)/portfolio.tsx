@@ -40,6 +40,7 @@ export default function Portfolio() {
     clearError,
   } = useWallet();
 
+  const router = useRouter();
   const [refreshing, setRefreshing] = React.useState(false);
 
   const onRefresh = React.useCallback(async () => {
@@ -57,12 +58,26 @@ export default function Portfolio() {
       maximumFractionDigits: decimals,
     });
 
+  const copyAddress = async () => {
+    if (!address) return;
+    try {
+      await Clipboard.setStringAsync(address);
+      Alert.alert('Copié', 'Adresse wallet copiée dans le presse-papiers');
+    } catch {
+      Alert.alert('Adresse', address);
+    }
+  };
+
   const openPhantom = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.open('https://phantom.app/', '_blank');
     } else {
       Linking.openURL('https://phantom.app/');
     }
+  };
+
+  const goToPresale = () => {
+    router.push('/presale');
   };
 
   // ─── Not connected ──────────────────────────────────────────
