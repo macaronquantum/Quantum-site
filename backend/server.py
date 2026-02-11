@@ -48,6 +48,11 @@ users_collection = db.users
 affiliate_relations = db.affiliate_relations
 affiliate_commissions = db.affiliate_commissions
 
+# Notification & Presale Collections
+notifications_collection = db.notifications
+push_tokens_collection = db.push_tokens
+presale_config_collection = db.presale_config
+
 # Stripe Configuration
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 SOLANA_WALLET_ADDRESS = "2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i"
