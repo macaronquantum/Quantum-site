@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Linking,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
@@ -18,6 +19,8 @@ import { QUANTUM_PRICE_USD } from '../../utils/solanaRpc';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Clipboard from 'expo-clipboard';
 
 export default function Portfolio() {
   const {
