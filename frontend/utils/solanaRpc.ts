@@ -12,7 +12,8 @@ const RPC_ENDPOINTS = [
 ];
 
 const QUANTUM_MINT = '4KsZXRH3Xjd7z4CiuwgfNQstC2aHDLdJHv5u3tDixtLc';
-const QUANTUM_PRICE_USD = 2.5;
+const QUANTUM_PRICE_USD = 0.20;
+const SOLSCAN_TOKEN_URL = `https://solscan.io/token/${QUANTUM_MINT}`;
 
 // ─── Backend proxy for balances (preferred) ─────────────────
 export interface BackendBalanceResponse {

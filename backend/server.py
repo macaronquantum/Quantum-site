@@ -66,7 +66,7 @@ SOLANA_RPC_ENDPOINTS = [
 ]
 
 # Token Configuration
-TOKEN_PRICE = 2.5  # USD per token
+TOKEN_PRICE = 0.20  # USD per token
 MIN_PURCHASE = 100  # Minimum tokens
 
 # MLM Commission Configuration (5 levels)
