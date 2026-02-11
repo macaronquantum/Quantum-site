@@ -118,31 +118,36 @@ export default function Profile() {
 
   const copyAddress = async () => {
     if (!address) return;
-    try {
-      await Clipboard.setStringAsync(address);
-      Alert.alert('Copié', 'Adresse wallet copiée dans le presse-papiers.');
-    } catch { Alert.alert('Address', address); }
+    const success = await platformCopy(address);
+    if (success) {
+      showAlert('Copié', 'Adresse wallet copiée dans le presse-papiers.');
+    } else {
+      showAlert('Adresse', address);
+    }
   };
 
   const handleDisconnect = () => {
-    Alert.alert('Déconnecter Wallet', 'Êtes-vous sûr de vouloir vous déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Déconnecter', style: 'destructive', onPress: disconnectWallet },
-    ]);
+    showConfirm(
+      'Déconnecter Wallet',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      disconnectWallet,
+      'Déconnecter',
+      'Annuler'
+    );
   };
 
   const toggleNetwork = () => {
     const next = network === 'mainnet' ? 'devnet' : 'mainnet';
     setNetwork(next);
     saveSetting('network', next);
-    Alert.alert('Network', `Basculé vers ${next === 'mainnet' ? 'Mainnet' : 'Devnet'}`);
+    showAlert('Network', `Basculé vers ${next === 'mainnet' ? 'Mainnet' : 'Devnet'}`);
   };
 
   const toggleNotifications = (value: boolean) => {
     setNotifications(value);
     saveSetting('notifications', value);
     if (value) {
-      Alert.alert('Notifications', 'Les notifications push sont activées. Vous recevrez des alertes pour les commissions et nouvelles affiliations.');
+      showAlert('Notifications', 'Les notifications push sont activées.');
     }
   };
 
