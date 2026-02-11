@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useWallet } from '../../contexts/WalletContext';
 import { COLORS, SPACING, FONT_SIZES, FONT_WEIGHTS, BORDER_RADIUS } from '../../constants/theme';
-import { QUANTUM_PRICE_USD } from '../../utils/solanaRpc';
+import { QUANTUM_PRICE_USD, QUANTUM_MINT } from '../../utils/solanaRpc';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
