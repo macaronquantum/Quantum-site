@@ -211,4 +211,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: SPACING.md,
   },
+  solscanLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    alignSelf: 'center',
+    marginTop: SPACING.sm,
+  },
+  solscanText: {
+    fontSize: FONT_SIZES.xs,
+    color: COLORS.textTertiary,
+    textDecorationLine: 'underline',
+  },
 });
