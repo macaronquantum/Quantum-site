@@ -116,7 +116,7 @@ export default function PreSale() {
 
   const handlePurchase = async () => {
     if (!validate()) {
-      Alert.alert('Form Incomplete', 'Please fill in all required fields correctly.');
+      showAlert('Formulaire incomplet', 'Veuillez remplir tous les champs requis correctement.');
       return;
     }
 
@@ -149,24 +149,14 @@ export default function PreSale() {
             Linking.openURL(response.data.checkoutUrl);
           }
         } else if (paymentMethod === 'crypto' && response.data.solanaAddress) {
-          Alert.alert(
-            'Crypto Payment',
-            `Send $${totalPrice.toFixed(2)} USD in SOL or USDC to:\n\n${response.data.solanaAddress}`,
-            [
-              { text: 'Copy Address', onPress: async () => {
-                try {
-                  await Clipboard.setStringAsync(response.data.solanaAddress);
-                  Alert.alert('Copié', 'Adresse Solana copiée dans le presse-papiers');
-                } catch { Alert.alert('Adresse', response.data.solanaAddress); }
-              }},
-              { text: 'OK' },
-            ]
-          );
+          const solAddr = response.data.solanaAddress;
+          await platformCopy(solAddr);
+          showAlert('Paiement Crypto', `Envoyez $${totalPrice.toFixed(2)} USD en SOL ou USDC à:\n\n${solAddr}\n\n(Adresse copiée dans le presse-papiers)`);
           setFormData({ firstName: '', lastName: '', email: '', walletAddress: address || '', tokenAmount: '', referralCode: '' });
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to process purchase. Please try again.');
+      showAlert('Erreur', error.response?.data?.detail || 'Échec du traitement. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }
