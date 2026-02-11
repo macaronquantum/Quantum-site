@@ -59,11 +59,11 @@ export default function Portfolio() {
 
   const copyAddress = async () => {
     if (!address) return;
-    try {
-      await Clipboard.setStringAsync(address);
-      Alert.alert('Copié', 'Adresse wallet copiée dans le presse-papiers');
-    } catch {
-      Alert.alert('Adresse', address);
+    const success = await platformCopy(address);
+    if (success) {
+      showAlert('Copié', 'Adresse wallet copiée dans le presse-papiers');
+    } else {
+      showAlert('Adresse', address);
     }
   };
 
