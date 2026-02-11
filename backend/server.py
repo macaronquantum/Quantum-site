@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, List
@@ -11,13 +11,8 @@ import uuid
 import httpx
 import secrets
 import string
+import urllib.parse
 from dotenv import load_dotenv
-from emergentintegrations.payments.stripe.checkout import (
-    StripeCheckout,
-    CheckoutSessionResponse,
-    CheckoutStatusResponse,
-    CheckoutSessionRequest
-)
 
 # Load environment variables
 load_dotenv()
