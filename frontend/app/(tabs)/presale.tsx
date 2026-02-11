@@ -141,7 +141,12 @@ export default function PreSale() {
 
       if (response.data.success) {
         if (paymentMethod === 'card' && response.data.checkoutUrl) {
-          await Linking.openURL(response.data.checkoutUrl);
+          // Open payment in-app browser (stays in the app)
+          await WebBrowser.openBrowserAsync(response.data.checkoutUrl, {
+            presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+            toolbarColor: '#0A0A0A',
+            controlsColor: '#8B5CF6',
+          });
         } else if (paymentMethod === 'crypto' && response.data.solanaAddress) {
           const solAddr = response.data.solanaAddress;
           await platformCopy(solAddr);
