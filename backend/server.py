@@ -855,7 +855,7 @@ async def get_presale_status(session_id: str):
                     "$set": {
                         "status": checkout_status.status,
                         "paymentStatus": checkout_status.payment_status,
-                        "updatedAt": datetime.utcnow()
+                        "updatedAt": datetime.now(timezone.utc)
                     }
                 }
             )
@@ -866,12 +866,23 @@ async def get_presale_status(session_id: str):
                 {
                     "$set": {
                         "paymentStatus": "paid",
-                        "updatedAt": datetime.utcnow()
+                        "updatedAt": datetime.now(timezone.utc)
                     }
                 }
             )
             
-            # Update referral stats if applicable
+            # Get purchase details for MLM commission distribution
+            purchase = await presale_purchases.find_one({"stripeSessionId": session_id})
+            if purchase:
+                # Distribute MLM commissions
+                await distribute_commissions(
+                    source_wallet=purchase["walletAddress"],
+                    net_amount=purchase["totalPrice"],
+                    event_type=EventType.PRESALE_PURCHASE.value,
+                    event_id=purchase.get("purchase_id", session_id)
+                )
+            
+            # Legacy: Update old referral stats if applicable
             metadata = checkout_status.metadata
             if metadata and metadata.get("referralCode"):
                 await update_referral_stats(
