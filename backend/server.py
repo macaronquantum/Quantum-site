@@ -764,7 +764,9 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
             )
             
             # Store in database as pending
+            purchase_id = str(uuid.uuid4())
             purchase_doc = {
+                "purchase_id": purchase_id,
                 "firstName": purchase.firstName,
                 "lastName": purchase.lastName,
                 "email": purchase.email,
@@ -775,8 +777,8 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 "paymentStatus": "pending",
                 "stripeSessionId": session.session_id,
                 "referralCode": purchase.referralCode,
-                "createdAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow()
+                "createdAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc)
             }
             
             await presale_purchases.insert_one(purchase_doc)
@@ -784,13 +786,14 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
             # Store transaction
             transaction_doc = {
                 "sessionId": session.session_id,
+                "purchase_id": purchase_id,
                 "amount": total_price,
                 "currency": "usd",
                 "status": "pending",
                 "paymentStatus": "pending",
                 "metadata": metadata,
-                "createdAt": datetime.utcnow(),
-                "updatedAt": datetime.utcnow()
+                "createdAt": datetime.now(timezone.utc),
+                "updatedAt": datetime.now(timezone.utc)
             }
             
             await payment_transactions.insert_one(transaction_doc)
