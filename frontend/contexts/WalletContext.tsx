@@ -181,6 +181,31 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[Wallet] Fetching balances for', address);
       
+      // Try backend proxy first (more reliable, no CORS issues)
+      const backendData = await getBalancesViaBackend(address);
+      
+      if (backendData && backendData.quantum) {
+        console.log('[Wallet] Backend proxy balance:', backendData.quantum.amount, 'QTM,', backendData.sol_balance, 'SOL');
+        
+        const qtm: TokenBalance = {
+          amount: backendData.quantum.amount,
+          rawAmount: backendData.quantum.rawAmount,
+          decimals: backendData.quantum.decimals,
+          uiAmountString: backendData.quantum.uiAmountString,
+        };
+        const sol = backendData.sol_balance;
+        const rate = await getUsdToEurRate();
+        
+        setQuantumBalance(qtm);
+        setSolBalance(sol);
+        setEurRate(rate);
+        setUsdValue(qtm.amount * QUANTUM_PRICE_USD);
+        setEurValue(qtm.amount * QUANTUM_PRICE_USD * rate);
+        return;
+      }
+
+      // Fallback: direct RPC calls
+      console.log('[Wallet] Falling back to direct RPC...');
       const results = await Promise.all([
         getQuantumBalance(address),
         getSolBalance(address),
