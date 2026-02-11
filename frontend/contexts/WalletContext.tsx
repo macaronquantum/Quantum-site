@@ -9,9 +9,9 @@ import React, {
   ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
-import { createURL } from 'expo-linking';
+import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as WebBrowser from 'expo-web-browser';
+import { Buffer } from 'buffer';
 import {
   getQuantumBalance,
   getSolBalance,
