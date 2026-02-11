@@ -838,7 +838,8 @@ async def get_sol_price_usd() -> float:
 
 
 async def get_token_holders_count() -> int:
-    """Count holders of Quantum token on-chain."""
+    """Count holders of Quantum token on-chain. Falls back to MongoDB config."""
+    # Try RPC endpoints
     async with httpx.AsyncClient(timeout=15.0) as client:
         for endpoint in SOLANA_RPC_ENDPOINTS:
             try:
@@ -851,10 +852,21 @@ async def get_token_holders_count() -> int:
                 if "error" in data:
                     continue
                 accounts = data.get("result", {}).get("value", [])
-                return len([a for a in accounts if float(a.get("uiAmount", 0) or 0) > 0])
+                count = len([a for a in accounts if float(a.get("uiAmount", 0) or 0) > 0])
+                if count > 0:
+                    # Cache to MongoDB for fallback
+                    await presale_config_collection.update_one(
+                        {"config_id": "main"},
+                        {"$set": {"participants": count}},
+                        upsert=True
+                    )
+                    return count
             except Exception:
                 continue
-    return 0
+
+    # Fallback: use MongoDB cached value
+    config = await presale_config_collection.find_one({"config_id": "main"}, {"_id": 0})
+    return config.get("participants", 0) if config else 0
 
 
 async def get_wallet_total_value_usd() -> dict:
