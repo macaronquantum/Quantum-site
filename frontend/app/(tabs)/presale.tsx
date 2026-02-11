@@ -93,7 +93,7 @@ export default function PreSale() {
       const hostUrl =
         typeof window !== 'undefined'
           ? window.location.origin
-          : 'https://web3-auth-flow.preview.emergentagent.com';
+          : 'https://phantom-connect-4.preview.emergentagent.com';
 
       const purchaseData = {
         firstName: formData.firstName,

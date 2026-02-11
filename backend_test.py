@@ -29,10 +29,10 @@ def get_backend_url():
                     backend_url = line.strip().split('=')[1]
                     return f"{backend_url}/api"
         # Fallback if not found in .env
-        return "https://web3-auth-flow.preview.emergentagent.com/api"
+        return "https://phantom-connect-4.preview.emergentagent.com/api"
     except Exception as e:
         print(f"Warning: Could not read frontend .env file: {e}")
-        return "https://web3-auth-flow.preview.emergentagent.com/api"
+        return "https://phantom-connect-4.preview.emergentagent.com/api"
 
 class QuantumIABackendTester:
     def __init__(self):
@@ -234,7 +234,7 @@ class QuantumIABackendTester:
             "walletAddress": "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM",
             "tokenAmount": 1000,
             "paymentMethod": "crypto",
-            "hostUrl": "https://web3-auth-flow.preview.emergentagent.com"
+            "hostUrl": "https://phantom-connect-4.preview.emergentagent.com"
         }
         
         try:
@@ -294,7 +294,7 @@ class QuantumIABackendTester:
             "walletAddress": "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
             "tokenAmount": 500,
             "paymentMethod": "card",
-            "hostUrl": "https://web3-auth-flow.preview.emergentagent.com"
+            "hostUrl": "https://phantom-connect-4.preview.emergentagent.com"
         }
         
         try:
@@ -355,7 +355,7 @@ class QuantumIABackendTester:
             "walletAddress": "8xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU",
             "tokenAmount": 50,  # Below minimum (100)
             "paymentMethod": "crypto",
-            "hostUrl": "https://web3-auth-flow.preview.emergentagent.com"
+            "hostUrl": "https://phantom-connect-4.preview.emergentagent.com"
         }
         
         try:
