@@ -365,11 +365,11 @@ export default function Portfolio() {
 function InfoRow({ label, value, copyable, fullValue }: { label: string; value: string; copyable?: boolean; fullValue?: string }) {
   const handleCopy = async () => {
     if (!copyable) return;
-    try {
-      await Clipboard.setStringAsync(fullValue || value);
-      Alert.alert('Copié', `${label} copié dans le presse-papiers`);
-    } catch {
-      Alert.alert(label, fullValue || value);
+    const success = await platformCopy(fullValue || value);
+    if (success) {
+      showAlert('Copié', `${label} copié dans le presse-papiers`);
+    } else {
+      showAlert(label, fullValue || value);
     }
   };
 
