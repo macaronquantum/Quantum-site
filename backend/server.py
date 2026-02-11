@@ -935,7 +935,7 @@ async def get_spl_token_usd_value(mint: str, amount: float) -> float:
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
-                f"https://api.coingecko.com/api/v3/simple/token_price/solana",
+                "https://api.coingecko.com/api/v3/simple/token_price/solana",
                 params={"contract_addresses": mint, "vs_currencies": "usd"},
             )
             data = resp.json()
