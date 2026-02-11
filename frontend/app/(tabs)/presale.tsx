@@ -154,7 +154,12 @@ export default function PreSale() {
             'Crypto Payment',
             `Send $${totalPrice.toFixed(2)} USD in SOL or USDC to:\n\n${response.data.solanaAddress}`,
             [
-              { text: 'Copy Address', onPress: () => Alert.alert('Copied', 'Address copied to clipboard') },
+              { text: 'Copy Address', onPress: async () => {
+                try {
+                  await Clipboard.setStringAsync(response.data.solanaAddress);
+                  Alert.alert('Copié', 'Adresse Solana copiée dans le presse-papiers');
+                } catch { Alert.alert('Adresse', response.data.solanaAddress); }
+              }},
               { text: 'OK' },
             ]
           );
