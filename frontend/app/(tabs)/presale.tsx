@@ -86,10 +86,12 @@ export default function PreSale() {
 
   const fetchPresaleProgress = async () => {
     try {
+      console.log('[Presale] Fetching progress from:', `${BACKEND_URL}/api/presale/progress`);
       const response = await axios.get(`${BACKEND_URL}/api/presale/progress`);
+      console.log('[Presale] Progress data received:', response.data);
       setPresaleProgress(response.data);
     } catch (error) {
-      console.error('Error fetching presale progress:', error);
+      console.error('[Presale] Error fetching presale progress:', error);
     }
   };
 
