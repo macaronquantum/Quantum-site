@@ -92,7 +92,7 @@ export interface WalletState {
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   refreshBalances: () => Promise<void>;
-  setConnectedAddress: (address: string) => void; // NEW: For callback page
+  setConnectedAddress: (address: string) => void;
 }
 
 const WalletContext = createContext<WalletState>({
@@ -111,7 +111,7 @@ const WalletContext = createContext<WalletState>({
   connectWallet: async () => {},
   disconnectWallet: async () => {},
   refreshBalances: async () => {},
-  setConnectedAddress: () => {}, // NEW
+  setConnectedAddress: () => {},
 });
 
 export function WalletProvider({ children }: { children: ReactNode }) {
@@ -183,7 +183,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       console.log('[Wallet] Fetching balances for', address);
       
-      // Try backend proxy first (more reliable, no CORS issues)
       const backendData = await getBalancesViaBackend(address);
       
       if (backendData && backendData.quantum) {
@@ -206,7 +205,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Fallback: direct RPC calls
       console.log('[Wallet] Falling back to direct RPC...');
       const results = await Promise.all([
         getQuantumBalance(address),
@@ -218,8 +216,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const sol = results[1];
       const rate = results[2];
 
-      console.log('[Wallet] Balance:', qtm.amount, 'QTM,', sol, 'SOL');
-      
       setQuantumBalance(qtm);
       setSolBalance(sol);
       setEurRate(rate);
@@ -232,6 +228,90 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [address]);
 
+  // Handle Phantom deep link callback (native only)
+  const handlePhantomCallback = useCallback(async (url: string) => {
+    try {
+      console.log('[Wallet] Phantom callback URL:', url);
+      const kp = pendingKeypair.current;
+      if (!kp) {
+        console.log('[Wallet] No pending keypair, ignoring URL');
+        return;
+      }
+
+      const parsed = Linking.parse(url);
+      const params = parsed.queryParams || {};
+
+      // Check for Phantom error
+      if (params.errorCode) {
+        const errMsg = params.errorMessage
+          ? decodeURIComponent(params.errorMessage as string)
+          : 'Connexion annulee';
+        setError(`Phantom: ${errMsg}`);
+        setConnecting(false);
+        connectCalled.current = false;
+        pendingKeypair.current = null;
+        return;
+      }
+
+      const phantomPubKey = params.phantom_encryption_public_key as string;
+      const nonce = params.nonce as string;
+      const data = params.data as string;
+
+      if (!phantomPubKey || !nonce || !data) {
+        console.log('[Wallet] Missing Phantom params in callback, ignoring');
+        return;
+      }
+
+      console.log('[Wallet] Decrypting Phantom response...');
+      await ensureCrypto();
+
+      const phantomBytes = bs58.decode(phantomPubKey);
+      const nonceBytes = bs58.decode(nonce);
+      const dataBytes = bs58.decode(data);
+      const sharedSecret = nacl.box.before(phantomBytes, kp.sec);
+      const decrypted = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
+
+      if (!decrypted) {
+        setError('Echec de la decryption Phantom');
+        setConnecting(false);
+        connectCalled.current = false;
+        pendingKeypair.current = null;
+        return;
+      }
+
+      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      console.log('[Wallet] Decrypted public_key:', payload.public_key);
+
+      if (payload.public_key) {
+        setWalletConnected(payload.public_key);
+      } else {
+        setError('Reponse Phantom invalide');
+        setConnecting(false);
+        connectCalled.current = false;
+      }
+      pendingKeypair.current = null;
+    } catch (err: any) {
+      console.error('[Wallet] Callback error:', err);
+      setError(`ERREUR: ${err?.message || 'Inconnue'}`);
+      setConnecting(false);
+      connectCalled.current = false;
+      pendingKeypair.current = null;
+    }
+  }, [setWalletConnected]);
+
+  // Listen for deep link URLs on native (Phantom redirect)
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+
+    const sub = Linking.addEventListener('url', (event) => {
+      if (event.url && connectCalled.current) {
+        handlePhantomCallback(event.url);
+      }
+    });
+
+    return () => sub.remove();
+  }, [handlePhantomCallback]);
+
   // Connect wallet
   const connectWallet = useCallback(async () => {
     console.log('[Wallet] Connect clicked');
@@ -242,7 +322,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return;
     }
     
-    // Check for saved wallet first
     const savedAddr = await getWallet();
     if (savedAddr) {
       console.log('[Wallet] Found saved, using it');
@@ -266,70 +345,70 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             return;
           } catch (err: any) {
             if (err?.code === 4001) {
-              setError('Connexion rejetée par utilisateur');
+              setError('Connexion rejetee par utilisateur');
               setConnecting(false);
               connectCalled.current = false;
               return;
             }
-            // Extension failed, continue to deep link
           }
         }
       }
 
-      // Deep link flow with server-side session
-      console.log('[Wallet] Using deep link with server session...');
+      // Deep link flow
+      console.log('[Wallet] Using deep link flow...');
       await ensureCrypto();
       
-      // Generate keypair
       const kp = nacl.box.keyPair();
-      const keypairJson = JSON.stringify({
-        pub: Array.from(kp.publicKey),
-        sec: Array.from(kp.secretKey),
-      });
-      
-      // Store keypair on server and get session ID
-      console.log('[Wallet] Storing keypair on server...');
-      const sessionResponse = await fetch(`${API_URL}/api/wallet/session`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keypair: keypairJson }),
-      });
-      
-      if (!sessionResponse.ok) {
-        throw new Error('Erreur serveur: impossible de créer la session');
-      }
-      
-      const { session_id } = await sessionResponse.json();
-      console.log('[Wallet] Session ID:', session_id);
-      
-      // Build redirect URL with session ID IN THE PATH (not query param)
       const dappPubKey = bs58.encode(kp.publicKey);
-      const baseUrl = Platform.OS === 'web' 
-        ? window.location.origin
-        : createURL('');
-      
-      // Use path-based session ID: /connect/abc12345
-      const redirectUrl = `${baseUrl}/connect/${session_id}`;
-      console.log('[Wallet] Redirect URL:', redirectUrl);
-      
-      const phantomParams = new URLSearchParams({
-        dapp_encryption_public_key: dappPubKey,
-        cluster: 'mainnet-beta',
-        app_url: baseUrl,
-        redirect_link: redirectUrl,
-      });
-      
-      const phantomUrl = `https://phantom.app/ul/v1/connect?${phantomParams.toString()}`;
-      console.log('[Wallet] Redirecting to Phantom...');
-      
+
       if (Platform.OS === 'web') {
-        // Redirect to Phantom
-        window.location.href = phantomUrl;
+        // Web: server-side session + redirect
+        const keypairJson = JSON.stringify({
+          pub: Array.from(kp.publicKey),
+          sec: Array.from(kp.secretKey),
+        });
+        
+        const sessionResponse = await fetch(`${API_URL}/api/wallet/session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keypair: keypairJson }),
+        });
+        
+        if (!sessionResponse.ok) {
+          throw new Error('Erreur serveur: impossible de creer la session');
+        }
+        
+        const { session_id } = await sessionResponse.json();
+        const baseUrl = window.location.origin;
+        const redirectUrl = `${baseUrl}/connect/${session_id}`;
+        
+        const phantomParams = new URLSearchParams({
+          dapp_encryption_public_key: dappPubKey,
+          cluster: 'mainnet-beta',
+          app_url: baseUrl,
+          redirect_link: redirectUrl,
+        });
+        
+        window.location.href = `https://phantom.app/ul/v1/connect?${phantomParams.toString()}`;
       } else {
-        // Native: use WebBrowser
-        const result = await WebBrowser.openAuthSessionAsync(phantomUrl, redirectUrl);
-        setConnecting(false);
-        connectCalled.current = false;
+        // Native: keep keypair in memory, use Linking.openURL to open Phantom app
+        pendingKeypair.current = { pub: kp.publicKey, sec: kp.secretKey };
+        
+        const appUrl = Linking.createURL('');
+        const redirectUrl = Linking.createURL('/--/phantom-callback');
+        console.log('[Wallet] Native redirect URL:', redirectUrl);
+        
+        const phantomParams = new URLSearchParams({
+          dapp_encryption_public_key: dappPubKey,
+          cluster: 'mainnet-beta',
+          app_url: appUrl,
+          redirect_link: redirectUrl,
+        });
+        
+        const phantomUrl = `https://phantom.app/ul/v1/connect?${phantomParams.toString()}`;
+        console.log('[Wallet] Opening Phantom app via deep link...');
+        
+        await Linking.openURL(phantomUrl);
       }
       
     } catch (err: any) {
@@ -338,6 +417,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setError(errMsg);
       setConnecting(false);
       connectCalled.current = false;
+      pendingKeypair.current = null;
     }
   }, [connected, connecting, refreshBalances, setWalletConnected]);
 
@@ -360,6 +440,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setEurValue(0);
     setError(null);
     connectCalled.current = false;
+    pendingKeypair.current = null;
     
     await clearWallet();
     
