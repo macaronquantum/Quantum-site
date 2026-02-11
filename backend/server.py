@@ -1263,10 +1263,11 @@ async def create_presale_purchase(purchase: PreSalePurchaseRequest):
                 raise HTTPException(status_code=502, detail="Card2Crypto did not return encrypted address")
             
             # Step 2: Build payment URL (hosted page with multiple providers)
-            email_encoded = urllib.parse.quote(purchase.email or "customer@quantum.io")
+            # address_in is already URL-encoded by Card2Crypto - pass as-is
+            email_encoded = urllib.parse.quote(purchase.email or "customer@quantum.io", safe='')
             payment_url = (
                 f"{CARD2CRYPTO_PAY_BASE}/pay.php"
-                f"?address={urllib.parse.quote(address_in, safe='')}"
+                f"?address={address_in}"
                 f"&amount={total_price:.2f}"
                 f"&email={email_encoded}"
                 f"&currency=USD"
