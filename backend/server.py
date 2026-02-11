@@ -58,6 +58,13 @@ presale_config_collection = db.presale_config
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 SOLANA_WALLET_ADDRESS = "2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i"
 
+# Solana Configuration
+QUANTUM_MINT = "4KsZXRH3Xjd7z4CiuwgfNQstC2aHDLdJHv5u3tDixtLc"
+SOLANA_RPC_ENDPOINTS = [
+    "https://api.mainnet-beta.solana.com",
+    "https://solana-mainnet.g.alchemy.com/v2/demo",
+]
+
 # Token Configuration
 TOKEN_PRICE = 2.5  # USD per token
 MIN_PURCHASE = 100  # Minimum tokens
