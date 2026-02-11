@@ -8,7 +8,7 @@ import json
 
 def test_stripe_endpoints():
     """Test additional Stripe-related endpoints"""
-    base_url = "https://expo-dev-preview-1.preview.emergentagent.com/api"
+    base_url = "https://mlm-network-20.preview.emergentagent.com/api"
     session = requests.Session()
     session.timeout = 10
     

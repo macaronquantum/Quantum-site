@@ -126,7 +126,7 @@ export default function PreSale() {
       const hostUrl =
         typeof window !== 'undefined'
           ? window.location.origin
-          : 'https://expo-dev-preview-1.preview.emergentagent.com';
+          : 'https://mlm-network-20.preview.emergentagent.com';
 
       const purchaseData = {
         firstName: formData.firstName,

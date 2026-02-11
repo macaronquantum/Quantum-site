@@ -1,143 +1,166 @@
-<analysis>**original_problem_statement:**
-The user wants to build an application that connects to the Phantom wallet to retrieve on-chain data. The immediate and most critical problem is that the user is unable to test the application on their mobile device using Expo Go. The web preview works for the wallet connection, but the user needs to validate the flow on mobile. When attempting to open the preview in Expo Go, it fails with an error. The user has explicitly stated that fixing the Expo Go build and download is the highest priority so they can test properly.
+<analysis>**original_problem_statement**: The user wants to implement a comprehensive 5-level multi-level marketing (MLM) affiliate system. The system must be backend-driven, persistent, and designed to support a future admin dashboard.
 
-PRODUCT REQUIREMENTS:
-- Connect to Phantom Wallet.
-- Fetch on-chain data.
-- Display user's portfolio (e.g., number of quantum tokens).
-- Ensure the connection flow works on mobile devices.
+**PRODUCT REQUIREMENTS**:
+- **MLM System (5 Levels)**:
+    - Commission structure: L1=20%, L2=10%, L3=5%, L4=2.5%, L5=1%.
+    - Backend must handle user relationships (referrer chains) and log all commission events with status (pending, confirmed, paid).
+    - Frontend should display: affiliate link, total affiliates per level, and total earnings per level.
+- **Affiliate Transaction View**:
+    - Users should be able to click on an affiliate level (e.g., Level 1) and see a list of transactions from that level, showing the referred user's wallet address and the transaction date.
+- **Bug Fixes**:
+    - Fix the Quantum token balance display on the main page. The user has provided their wallet address (), the token address (same as wallet), and a mint transaction ID for debugging.
+    - Fix all non-functional buttons across the application, especially the Copy buttons on the affiliate and settings pages.
+- **New Features**:
+    - **Push Notifications**: Implement a backend-driven notification system to alert users about affiliate activities (e.g., new commission earned).
+    - **Presale Progress Bar**: Add a visual on the homepage showing the total funds raised for the presale, with a progress bar against a goal. This data should be manually configurable from the backend.
+    - **Homepage CTA**: Add a marketing Call-To-Action banner on the homepage to encourage users to buy Quantum tokens, linking to the presale page. The banner should have a marketing message like Buy Quantum at 50% of the listing price • Listing June 1st, 2026.
 
-**User's preferred language**:
-Français (French)
+**User's preferred language**: French. The next agent MUST respond in French only.
 
 **what currently exists?**
-The project consists of a Next.js/Expo frontend and a FastAPI/MongoDB backend. A server-side session management system has been implemented to handle the Phantom wallet connection securely, overcoming state loss issues during app redirection on mobile browsers. This flow involves:
-1.  The frontend generating a keypair.
-2.  Storing this keypair on the FastAPI backend against a unique .
-3.  Redirecting to Phantom with a callback URL containing the  in the *path* (e.g., ).
-4.  A dedicated callback page () handles the return from Phantom, retrieves the keypair from the backend using the , decrypts the response, and updates the application's state via .
-
-This connection flow is now working correctly in the web preview. However, the Expo Go preview functionality remains broken.
+The application backend () has been significantly built out to support a 5-level MLM affiliate system, a notification system, and a manually-configurable presale progress tracker. The frontend has been updated with a new affiliate dashboard page (), a presale progress bar and a marketing CTA on the portfolio page (), and a notification section on the profile page ().
 
 **Last working item**:
--   **Last item agent was working**: The agent was debugging an issue preventing the user from opening the application preview in Expo Go. The user reported a 500 error when using the Open in Expo feature from the development environment. The agent identified this as a CORS (Cross-Origin Resource Sharing) issue where the Expo development server was rejecting requests from the preview environment's origin (). An attempt was made to patch the  middleware to allow this origin.
--   **Status**: IN PROGRESS
+-   **Last item agent was working**: The user's most recent request is to fix the incorrect display of the Quantum token balance. The user provided specific wallet and token addresses for debugging.
+-   **Status**: NOT STARTED
 -   **Agent Testing Done**: N
--   **Which testing method agent to use?**: The agent should first verify the fix by checking the server logs for any remaining CORS errors. Once the agent believes the issue is resolved, they should ask the user to test by clicking the View Preview -> Open in Expo button.
+-   **Which testing method agent to use?**: Backend testing agent. The agent should first investigate . Use the provided wallet address () and token address to debug why the token balance isn't being fetched or displayed correctly. Direct  or  calls to the Solana RPC endpoint could be used for initial diagnosis.
 -   **User Testing Done**: N
 
 **All Pending/In progress Issue list**:
--   Issue 1: Expo Go preview is not working. (Priority: P0)
+-   **Issue 1**: Quantum token balance is not displayed correctly on the portfolio page. (P0)
+-   **Issue 2**: Multiple Copy buttons throughout the application are non-functional. (P1)
 
-**Issues Detail:**
--   **Issue 1: Expo Go preview fails to open**
-    -   **Description**: When the user tries to open the app preview in Expo Go through the platform's UI, it fails with an error (reported as a 500 error). This blocks all mobile testing. The root cause appears to be a CORS policy in the Expo development server that blocks requests from the platform's preview service.
-    -   **Attempted fixes**: The agent identified the responsible file () and attempted to apply a patch to add the  domain to the allowed origins. This did not resolve the issue. The agent also removed the  field from  as it was causing issues without a corresponding .
+**Issues Detail**:
+-   **Issue 1: Quantum token balance not displayed correctly**
+    -   **Attempted fixes**: The agent briefly looked at the  utility file but did not attempt a fix.
     -   **Next debug checklist**:
-        1.  Verify if the patch to  was correctly applied and is still present after the server restarts.
-        2.  Inspect the live logs of the [15:36:55] Starting project at /app/frontend command for specific CORS error messages when the user attempts to open the Expo Go preview.
-        3.  Investigate alternative, more stable methods for configuring CORS for the Expo dev server, such as through . Patching  is fragile.
-        4.  Confirm that removing the  key from  was the correct action and isn't causing other side effects related to project identification on Expo's services.
-    -   **Why fix this issue and what will be achieved with the fix?**: The core wallet connection feature involves deep-linking, which can only be properly tested on a mobile device. Fixing this will unblock user testing and validation of the primary feature.
+        1.  Examine the  file to understand how it fetches token balances.
+        2.  Verify if the correct RPC method is being used (e.g., ).
+        3.  Use the user-provided data for debugging:
+            -   Wallet: 
+            -   Token Address: 
+            -   Mint Tx: 
+        4.  The user suggested maybe the mint address is needed instead of the token address. The agent should investigate the difference in the context of Solana's SPL tokens. The agent should check if the provided token address is a Token Account Address or a Mint Address.
+        5.  Modify the logic in  and  to correctly fetch and display the balance.
+    -   **Why fix this issue and what will be achieved with the fix?**: This is a critical UI bug that prevents the user from seeing their primary asset balance, which is core functionality.
+    -   **Status**: NOT STARTED
+    -   **Is recurring issue?**: Y
+    -   **Should Test frontend/backend/both after fix?**: Both. Backend logic in  and frontend display in .
+    -   **Blocked on other issue**: None.
+
+-   **Issue 2: Non-functional Copy buttons**
+    -   **Attempted fixes**: The agent added a generic copy function in  but the user reported that buttons on other pages (Affiliation, Settings) are still broken.
+    -   **Next debug checklist**:
+        1.  Systematically go through each page: , , and .
+        2.  Identify every button or icon intended for copying text.
+        3.  Ensure the  function is correctly wired to an  handler for each button.
+        4.  Implement a user feedback mechanism (e.g., a temporary Copied! message) for a better user experience.
+    -   **Why fix this issue and what will be achieved with the fix?**: Improves usability by making it easy for users to share their affiliate link and copy their wallet address.
     -   **Status**: IN PROGRESS
     -   **Is recurring issue?**: Y
-    -   **Should Test frontend/backend/both after fix?**: Frontend (Expo Go functionality).
-    -   **Blocked on other issue**: None. This is the primary blocker.
+    -   **Should Test frontend/backend/both after fix?**: Frontend.
+    -   **Blocked on other issue**: None.
 
 **In progress Task List**:
-There are no other tasks in progress. The entire focus is on resolving the Expo Go issue.
+There are no multi-step tasks currently in progress. The agent was working on a batch of features which are now complete, and is about to start on the new issues/tasks.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks**:
-    -   **(P0) Fetch and Display On-Chain Data**: Once the wallet is connected, implement the logic to fetch the user's token balance (e.g., quantum tokens) and other relevant portfolio data from the Solana blockchain.
-    -   **(P1) Display Connected State in UI**: Update the UI across the Portfolio, Invest, and Pre-Sale pages to reflect the connected wallet status and display the fetched on-chain data. Currently, after connection, it redirects to the homepage which appears as if the wallet is not connected.
-
+    -   **(P1)** On the , make each level section clickable. When clicked, it should display a list of all affiliate transactions for that level, showing the referred user's wallet address and the date of their action. A clean no data state should be displayed if there are no transactions.
 -   **Future Tasks**:
-    -   **(P2) General App Refinement**: The user mentioned peaufinage (refinement), which will involve improving the UI/UX and overall stability after the core features are implemented and working.
+    -   **(P2)** Build the backend admin dashboard. The user explicitly stated this should be done after the main application is polished and fully functional. The backend API routes should be designed with this future requirement in mind.
 
 **Completed work in this session**
--   **Server-Side Wallet Connection Flow (DONE)**: Implemented a robust wallet connection mechanism to solve state loss on mobile browser redirection.
-    -   Created backend endpoints  and  in  to manage a temporary keypair storage.
-    -   Created a dynamic frontend route  to act as a secure callback handler.
-    -   Refactored  to integrate the new server-side session logic.
--   **Web Preview Connection (DONE)**: The wallet connection flow is now fully functional in the web preview environment.
--   **Initial Expo Build Errors (DONE)**: Resolved initial build issues by creating  and installing .
+-   **MLM Affiliate System (Backend)**: Implemented 5-level affiliate logic, commission calculation, and data models for users, commissions, and relationships in .
+-   **MLM Affiliate System (Frontend)**: Created a new  to display affiliate link, stats per level, and total earnings.
+-   **Notification System**: Added backend models and API endpoints in  to create and fetch notifications. Integrated this with the commission distribution logic.
+-   **Notification Frontend**: Added a notification section and toggle switch on .
+-   **Presale Progress Bar**: Implemented a progress bar on  that fetches data from a new  endpoint.
+-   **Homepage CTA Banner**: Added a marketing banner with a link to the presale page on .
+-   **Initial Testing**: Ran the testing agent multiple times to verify the backend endpoints and basic frontend UI elements for the new features.
 
 **Earlier issues found/mentioned but not fixed**
-None. All previously identified issues were part of the wallet connection debugging and have been resolved by the new server-side architecture.
+-   **Issue 1: Quantum token balance not displaying correctly**
+    -   This issue was first mentioned in Chat Message 4. The agent acknowledged it and performed a brief investigation (Chat 74-76) but did not resolve it. The user raised it again with more specific details in Chat Message 161, making it the current top priority.
 
 **Known issue recurrence from previous fork**
-N/A
+-   None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Frontend**: Next.js, React, Expo
--   **Backend**: Python, FastAPI
--   **Database**: MongoDB
--   **Wallet Integration**: Phantom Wallet (Solana) deep-linking.
--   **Security**: Using a server-side session to persist a generated keypair ( secret box) across mobile app redirections, as mobile browsers clear .
--   **DevOps**: Expo development server, tunneling with ngrok, and debugging CORS issues in a containerized environment.
+-   **Backend**: Node.js with TypeScript, using an Express-like structure within a single  file. In-memory JSON () serves as the database.
+-   **Frontend**: React with TypeScript (.tsx).
+-   **Blockchain**: Solana Web3 integration for wallet authentication and token balance checking via .
+-   **Payments**: Stripe integration is present for handling payments, with a webhook to confirm transactions and distribute commissions.
 
 **key DB schema**
--   **sessions**: 
-    -   *Note: This schema is inferred from the code in . The collection stores temporary keypairs for the duration of the connection process.*
+-   **Users**: 
+-   **AffiliateCommissions**: 
+-   **Notifications**: 
+-   **PresaleConfig**: 
 
 **changes in tech stack**
-None.
+-   None.
 
 **All files of reference**
--   : Updated to include  and  endpoints for the wallet connection flow.
--   : Completely rewritten to use the new server-side session flow instead of local storage.
--   : A new file that serves as the redirect URI from Phantom. It handles fetching the session data, decrypting the payload, and updating the wallet context.
--   : Modified to remove the  key to resolve a build warning.
--   : Created to satisfy Expo's build requirements.
--   : File that the agent attempted to patch to fix the CORS issue.
+-   : The main backend file. It has been heavily modified to include all business logic for affiliates, notifications, and presale configuration.
+-   : The new frontend page for the MLM dashboard.
+-   : The main user dashboard, updated with the presale progress bar and CTA banner.
+-   : The user settings page, updated with the notification controls.
+-   : The utility file responsible for Solana blockchain interactions, which is central to the token balance bug.
+-   : The Product Requirements Document, updated to reflect completed and upcoming tasks.
 
 **Areas that need refactoring**
--   The attempted patch of a file inside  is a temporary and unstable solution. A proper fix for the CORS issue should be implemented, likely via configuration in  or by understanding the platform's specific proxy/CORS requirements.
+-   The  file is becoming a monolith. It contains models, API routes, and business logic for multiple unrelated features (users, presale, affiliates, notifications). This should be broken down into a more modular structure (e.g., controllers, services, models) to improve maintainability.
 
 **key api endpoints**
--   : Creates a new session, generates a keypair, stores it, and returns a .
--   : Retrieves the stored keypair associated with a given .
+-   : GET stats for the current user.
+-   : POST to initiate a token purchase.
+-   : POST to check payment status and trigger commissions.
+-   : GET user notifications.
+-   : GET/POST presale progress data (for admin use).
+-   : POST endpoint for Stripe to confirm payments.
 
 **Critical Info for New Agent**
--   The primary blocker is the **Expo Go CORS issue**. The user cannot test on mobile until this is fixed. Do not proceed to other tasks before this is resolved.
--   The wallet connection logic was refactored multiple times. The current, working solution uses a **server-side session store** ( + ). Do not revert to previous attempts (URL params, URL hash fragments, popups) as they all failed due to mobile browser/Phantom behavior.
--   The  is passed in the URL **path** (), not as a query parameter, because Phantom was observed to strip query parameters from the redirect URL.
--   The user is technical and understands the concepts. They approved the backend approach, calling it cleaner and more scalable.
+-   Your top priority is to fix the Quantum token balance display issue using the details provided by the user.
+-   The user is focused on polishing the existing application. Address all bug fixes and small UI/UX improvements before considering large new features.
+-   The presale progress data (, ) is intended to be updated manually by an admin via the  endpoint. The frontend just displays this data.
+-   Remember to respond exclusively in French.
 
 **documents and test reports created in this job**
-None.
+-   
+-   Test reports were generated by the testing agent and are located in , such as , , etc.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Latest**: User confirms the web-based wallet connection works but the app doesn't show the connected state afterward.
-2.  User asks the agent to debug the Expo Go preview so they can test on a real device.
-3.  User agrees to try the agent's proposed Option 1 (EAS setup) to fix Expo.
-4.  User provides their Expo username: .
-5.  User abandons the manual URL approach and directs the agent to fix the Open in Expo button which gives a 500 error.
-6.  User reports the Keypair introuvable! error again, which was due to browser cache.
-7.  User confirms the backend solution is the right direction and tells the agent to refine it.
-8.  User states the previous fix (URL hash) did not work and suggests trying a popup-based solution again.
-9.  User confirms the URL parameter approach failed because the key was not present in the return URL.
-10. **Oldest**: User reports the same Keypair introuvable! error persists with the URL parameter fix.
+1.  **Chat 161**: **(PENDING)** User requests a fix for the Quantum token balance display, providing their wallet address, token address, and a mint transaction ID for debugging.
+2.  **Chat 128**: User requests a fix for all non-functional buttons (especially copy buttons), and the addition of a marketing CTA banner on the homepage. (Partially Completed: CTA added, buttons still an issue).
+3.  **Chat 87**: User selects options for presale amount and confirms moving forward. (Completed).
+4.  **Chat 84**: User requests several features: a detailed transaction list view for affiliate levels, testing of the referral link flow, fixing broken copy buttons, implementing push notifications, fixing the Quantum token balance display, and adding a presale progress bar. (Partially Completed: Notifications and progress bar are done, others are pending).
 
 **Project Health Check:**
 -   **Broken**:
-    -   Expo Go Preview: Fails to load due to a CORS issue. This is the highest priority blocker.
+    -   Quantum token balance display on .
+    -   Copy button functionality on  and .
+-   **Mocked**:
+    -   None. Data is intended to be live from the backend and blockchain.
 
 **3rd Party Integrations**
--   Phantom Wallet: Used for Solana blockchain authentication and connection.
+-   **Solana**: Used for wallet connection and reading on-chain data (token balances). No specific key requirements mentioned; likely uses a public RPC endpoint.
+-   **Stripe**: Used for payment processing. A webhook handler is configured in the backend. Requires a User API Key (secret key) for the backend to function.
 
 **Testing status**
--   **Testing agent used after significant changes**: NO
+-   **Testing agent used after significant changes**: YES
 -   **Troubleshoot agent used after agent stuck in loop**: NO
--   **Test files created**: None.
--   **Known regressions**: None.
+-   **Test files created**: Test reports are in . No persistent test files () were created.
+-   **Known regressions**: The Quantum token balance display was previously working or partially working and is now confirmed broken.
 
 **Credentials to test flow:**
-N/A
+-   No credentials provided. The user connects their own Solana wallet on the frontend.
 
 **What agent forgot to execute**
-The agent correctly prioritized the user's explicit request to fix the Expo Go bug. No planned tasks were forgotten; they are pending the resolution of this blocker.</analysis>
+-   The agent has not yet started work on the most recent user request: fixing the Quantum token balance display with the provided debug info.
+-   The agent did not fully resolve the broken copy buttons issue, as the user had to report it again.
+-   The agent has not yet implemented the detailed transaction list view for each affiliate level, which was requested by the user.</analysis>
