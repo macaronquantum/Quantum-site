@@ -202,7 +202,79 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     saveToStorage(WALLET_KEY, addr);
     setAddress(addr);
     setConnected(true);
+    setConnecting(false);
+    connectCalled.current = false;
   }, []);
+
+  // Process Phantom response directly (used by popup flow)
+  const processPhantomResponse = useCallback(async (
+    phantomPubKey: string,
+    nonce: string,
+    data: string
+  ) => {
+    console.log('[Wallet] Processing Phantom response...');
+    
+    try {
+      await ensureCrypto();
+      
+      // Get keypair from storage (should still be there since page didn't navigate)
+      const keypairJson = await getFromStorage(KEYPAIR_KEY);
+      
+      if (!keypairJson) {
+        setError('ERREUR: Keypair introuvable dans le storage après popup');
+        setConnecting(false);
+        connectCalled.current = false;
+        return;
+      }
+      
+      const keypair = JSON.parse(keypairJson);
+      if (!keypair.pub || !keypair.sec) {
+        setError('ERREUR: Keypair corrompu');
+        setConnecting(false);
+        connectCalled.current = false;
+        return;
+      }
+      
+      const secretKey = new Uint8Array(keypair.sec);
+      const phantomBytes = bs58.decode(phantomPubKey);
+      const nonceBytes = bs58.decode(nonce);
+      const dataBytes = bs58.decode(data);
+      
+      console.log('[Wallet] Decrypting response...');
+      
+      const sharedSecret = nacl.box.before(phantomBytes, secretKey);
+      const decrypted = nacl.box.open.after(dataBytes, nonceBytes, sharedSecret);
+      
+      if (!decrypted) {
+        setError('ERREUR DECRYPTION: La décryption a échoué. Réessayez.');
+        setConnecting(false);
+        connectCalled.current = false;
+        return;
+      }
+      
+      console.log('[Wallet] Decryption SUCCESS!');
+      
+      const payload = JSON.parse(Buffer.from(decrypted).toString('utf8'));
+      
+      if (!payload.public_key) {
+        setError('ERREUR: Réponse Phantom invalide (pas de public_key)');
+        setConnecting(false);
+        connectCalled.current = false;
+        return;
+      }
+      
+      // SUCCESS!
+      await clearFromStorage(KEYPAIR_KEY);
+      setWalletConnected(payload.public_key);
+      
+    } catch (err: any) {
+      const errMsg = `ERREUR TECHNIQUE: ${err?.message || 'Inconnue'}`;
+      console.error('[Wallet]', errMsg);
+      setError(errMsg);
+      setConnecting(false);
+      connectCalled.current = false;
+    }
+  }, [setWalletConnected]);
 
   // Process Phantom callback
   const processCallback = useCallback(async (): Promise<boolean> => {
