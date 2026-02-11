@@ -216,7 +216,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
     
     console.log('[Wallet] PHANTOM CALLBACK DETECTED');
+    console.log('[Wallet] Full URL:', url);
     const params = new URLSearchParams(window.location.search);
+    
+    // DEBUG: Log all URL parameters
+    const allParams: string[] = [];
+    params.forEach((value, key) => {
+      allParams.push(`${key}=${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+    });
+    console.log('[Wallet] URL Params:', allParams.join(', '));
     
     // Check Phantom error
     if (params.get('errorCode')) {
