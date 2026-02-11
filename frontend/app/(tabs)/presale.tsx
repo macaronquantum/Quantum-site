@@ -93,7 +93,7 @@ export default function PreSale() {
     }
   };
 
-  const totalPrice = parseFloat(formData.tokenAmount) * (config?.tokenPrice || 2.5);
+  const totalPrice = parseFloat(formData.tokenAmount) * (config?.tokenPrice || 0.20);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -228,7 +228,7 @@ export default function PreSale() {
           <View style={styles.infoGrid}>
             <View style={styles.infoCard}>
               <Text style={styles.infoLabel}>Token Price</Text>
-              <Text style={styles.infoValue}>${config?.tokenPrice || '2.50'}</Text>
+              <Text style={styles.infoValue}>${config?.tokenPrice || '0.20'}</Text>
             </View>
             <View style={styles.infoCard}>
               <Text style={styles.infoLabel}>Min. Purchase</Text>

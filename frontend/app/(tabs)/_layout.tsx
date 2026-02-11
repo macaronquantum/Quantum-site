@@ -96,8 +96,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   activeIconWrap: {
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderRadius: 10,
-    padding: 4,
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });
