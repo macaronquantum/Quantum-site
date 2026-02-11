@@ -274,12 +274,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setConnected(true);
       setAddress(walletAddress);
       await AsyncStorage.setItem(WALLET_KEY, walletAddress);
+      storeData(WALLET_KEY, walletAddress);
       
       // Clean up keypair after successful connection
       await AsyncStorage.removeItem(KEYPAIR_KEY);
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        window.localStorage.removeItem(KEYPAIR_KEY);
-      }
+      removeData(KEYPAIR_KEY);
       
     } catch (err: any) {
       console.error('[Wallet] Callback processing error:', err);
