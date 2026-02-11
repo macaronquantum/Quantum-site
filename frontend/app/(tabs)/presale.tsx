@@ -93,7 +93,7 @@ export default function PreSale() {
       const hostUrl =
         typeof window !== 'undefined'
           ? window.location.origin
-          : 'https://phantom-connect-4.preview.emergentagent.com';
+          : 'https://expo-dev-preview-1.preview.emergentagent.com';
 
       const purchaseData = {
         firstName: formData.firstName,
