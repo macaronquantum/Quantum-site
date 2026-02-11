@@ -818,10 +818,10 @@ class PresaleConfigUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-# On-chain presale cache (30 min TTL)
+# On-chain presale cache (2 hours TTL)
 _presale_onchain_cache: Dict = {}
 _presale_cache_ts: float = 0
-PRESALE_CACHE_TTL = 1800  # 30 minutes
+PRESALE_CACHE_TTL = 7200  # 2 hours
 
 
 async def get_sol_price_usd() -> float:
@@ -838,7 +838,7 @@ async def get_sol_price_usd() -> float:
 
 
 async def get_token_holders_count() -> int:
-    """Count holders of Quantum token. Tries RPC, falls back to 0."""
+    """Count holders of Quantum token on-chain."""
     async with httpx.AsyncClient(timeout=15.0) as client:
         for endpoint in SOLANA_RPC_ENDPOINTS:
             try:
@@ -857,75 +857,64 @@ async def get_token_holders_count() -> int:
     return 0
 
 
-async def get_total_sol_received() -> float:
-    """Sum incoming SOL to wallet. Rate-limit friendly with backoff."""
-    import asyncio
-    total_lamports = 0
-    processed = 0
+async def get_wallet_total_value_usd() -> dict:
+    """
+    Get total USD value of ALL assets on the presale wallet.
+    SOL balance * SOL price + Quantum tokens * Quantum price + USDC balance.
+    Simple: 3 RPC calls max, no transaction parsing needed.
+    """
+    sol_price = await get_sol_price_usd()
+    sol_balance = 0.0
+    total_usd = 0.0
 
+    # Get SOL balance
     try:
-        sigs_result = await solana_rpc_call("getSignaturesForAddress", [
-            SOLANA_WALLET_ADDRESS, {"limit": 200}
+        result = await solana_rpc_call("getBalance", [SOLANA_WALLET_ADDRESS])
+        lamports = result.get("value", 0) if isinstance(result, dict) else 0
+        sol_balance = lamports / 1e9
+    except Exception:
+        pass
+
+    # Get all SPL token accounts
+    try:
+        result = await solana_rpc_call("getTokenAccountsByOwner", [
+            SOLANA_WALLET_ADDRESS,
+            {"programId": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"},
+            {"encoding": "jsonParsed"},
         ])
-        signatures = sigs_result if isinstance(sigs_result, list) else []
+        accounts = result.get("value", []) if isinstance(result, dict) else []
+        for acc in accounts:
+            info = acc["account"]["data"]["parsed"]["info"]
+            mint = info["mint"]
+            ui_amount = info["tokenAmount"].get("uiAmount", 0) or 0
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            for sig_info in signatures:
-                sig = sig_info.get("signature")
-                if not sig or sig_info.get("err"):
-                    continue
+            if mint == QUANTUM_MINT:
+                # Quantum tokens at presale price
+                total_usd += ui_amount * TOKEN_PRICE
+            elif mint == "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v":
+                # USDC (1:1 with USD)
+                total_usd += ui_amount
+            elif mint == "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB":
+                # USDT (1:1 with USD)
+                total_usd += ui_amount
+    except Exception:
+        pass
 
-                success = False
-                for endpoint in SOLANA_RPC_ENDPOINTS:
-                    try:
-                        resp = await client.post(endpoint, json={
-                            "jsonrpc": "2.0", "id": 1,
-                            "method": "getTransaction",
-                            "params": [sig, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}],
-                        })
-                        data = resp.json()
-                        if "error" in data:
-                            if data["error"].get("code") == 429:
-                                await asyncio.sleep(2)
-                            continue
+    # Add SOL value in USD
+    sol_usd = sol_balance * sol_price if sol_price > 0 else 0
+    total_usd += sol_usd
 
-                        tx_data = data.get("result")
-                        if not tx_data or not tx_data.get("meta"):
-                            break
-
-                        meta = tx_data["meta"]
-                        keys = tx_data["transaction"]["message"]["accountKeys"]
-                        prebals = meta.get("preBalances", [])
-                        postbals = meta.get("postBalances", [])
-
-                        for i, acc in enumerate(keys):
-                            pk = acc.get("pubkey", acc) if isinstance(acc, dict) else acc
-                            if pk == SOLANA_WALLET_ADDRESS and i < len(prebals) and i < len(postbals):
-                                diff = postbals[i] - prebals[i]
-                                if diff > 0:
-                                    total_lamports += diff
-                                break
-                        success = True
-                        processed += 1
-                        break
-                    except Exception:
-                        continue
-
-                if not success:
-                    await asyncio.sleep(1)
-                else:
-                    await asyncio.sleep(0.5)
-
-    except Exception as e:
-        print(f"Error fetching SOL received: {e}")
-
-    print(f"Processed {processed}/{len(signatures) if 'signatures' in dir() else 0} transactions, total_sol={total_lamports/1e9:.4f}")
-    return total_lamports / 1e9
+    return {
+        "total_usd": round(total_usd, 2),
+        "sol_balance": round(sol_balance, 4),
+        "sol_price_usd": sol_price,
+        "sol_value_usd": round(sol_usd, 2),
+    }
 
 
 @app.get("/api/presale/progress")
 async def get_presale_progress():
-    """Get presale progress - hybrid on-chain + manual config (cached 30 min)"""
+    """Get presale progress from on-chain wallet balance (cached 2h)"""
     global _presale_onchain_cache, _presale_cache_ts
 
     import time
@@ -934,39 +923,25 @@ async def get_presale_progress():
     if _presale_onchain_cache and (now - _presale_cache_ts) < PRESALE_CACHE_TTL:
         return _presale_onchain_cache
 
-    # Check manual override in MongoDB first
-    manual_config = await presale_config_collection.find_one(
-        {"config_id": "main"}, {"_id": 0}
-    )
+    # Get total wallet value (simple, fast: 2-3 RPC calls)
+    wallet_data = await get_wallet_total_value_usd()
+    total_raised_usd = wallet_data["total_usd"]
 
-    # Fetch SOL price (fast, single call)
-    sol_price = await get_sol_price_usd()
-
-    # Try on-chain holders count
+    # Get token holders count (may fail due to rate limits)
     holders = await get_token_holders_count()
-
-    # Try on-chain SOL received (may take time due to rate limits)
-    total_sol = await get_total_sol_received()
-    total_raised_usd = total_sol * sol_price if sol_price > 0 else 0
-
-    # Use manual override if on-chain data is 0 but manual is set
-    if manual_config:
-        if total_raised_usd == 0 and manual_config.get("total_raised", 0) > 0:
-            total_raised_usd = manual_config["total_raised"]
-        if holders == 0 and manual_config.get("participants", 0) > 0:
-            holders = manual_config["participants"]
 
     goal = 2000000  # $2M
 
     result = {
-        "total_raised": round(total_raised_usd, 2),
+        "total_raised": total_raised_usd,
         "goal": goal,
         "progress_percentage": min((total_raised_usd / goal * 100), 100) if goal > 0 else 0,
         "remaining": round(max(goal - total_raised_usd, 0), 2),
         "participants": holders,
         "is_active": True,
-        "sol_received": round(total_sol, 4),
-        "sol_price_usd": sol_price,
+        "sol_balance": wallet_data["sol_balance"],
+        "sol_price_usd": wallet_data["sol_price_usd"],
+        "sol_value_usd": wallet_data["sol_value_usd"],
         "start_date": None,
         "end_date": None,
     }
