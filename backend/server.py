@@ -67,6 +67,21 @@ COMMISSION_RATES = {
 MAX_AFFILIATE_LEVEL = 5
 
 
+# ============== ENUMS ==============
+
+class CommissionStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    PAID = "paid"
+
+
+class EventType(str, Enum):
+    PRESALE_PURCHASE = "presale_purchase"
+    DEPOSIT = "deposit"
+    TRADE_FEE = "trade_fee"
+    OTHER = "other"
+
+
 # ============== WALLET SESSION MODELS ==============
 
 class WalletSessionCreate(BaseModel):
@@ -78,6 +93,193 @@ class WalletSessionResponse(BaseModel):
 class WalletSessionGet(BaseModel):
     keypair: Optional[str] = None
     error: Optional[str] = None
+
+
+# ============== MLM AFFILIATE MODELS ==============
+
+class UserCreate(BaseModel):
+    wallet_public_key: str
+    referral_code_used: Optional[str] = None  # Code used to register
+
+
+class UserResponse(BaseModel):
+    wallet_public_key: str
+    referral_code: str
+    referrer_id: Optional[str] = None
+    created_at: str
+
+
+class AffiliateRelationResponse(BaseModel):
+    user_id: str
+    ancestor_id: str
+    level: int
+
+
+class LevelStats(BaseModel):
+    level: int
+    referral_count: int
+    total_commission: float
+    pending_commission: float
+    confirmed_commission: float
+    paid_commission: float
+
+
+class AffiliateStatsResponse(BaseModel):
+    wallet_public_key: str
+    referral_code: str
+    referral_link: str
+    total_referrals: int
+    total_earnings: float
+    pending_earnings: float
+    confirmed_earnings: float
+    paid_earnings: float
+    levels: List[LevelStats]
+
+
+class CommissionEntry(BaseModel):
+    id: str
+    source_user_wallet: str
+    level: int
+    percentage: float
+    amount: float
+    event_type: str
+    event_id: str
+    status: str
+    created_at: str
+
+
+class CommissionHistoryResponse(BaseModel):
+    wallet_public_key: str
+    commissions: List[CommissionEntry]
+    total_count: int
+
+
+class AffiliateTreeNode(BaseModel):
+    wallet_public_key: str
+    referral_code: str
+    level: int
+    direct_referrals: int
+    total_generated: float
+    children: List['AffiliateTreeNode'] = []
+
+
+AffiliateTreeNode.model_rebuild()
+
+
+class AffiliateTreeResponse(BaseModel):
+    wallet_public_key: str
+    tree: List[AffiliateTreeNode]
+    total_network_size: int
+
+
+class CreateCommissionRequest(BaseModel):
+    source_wallet: str
+    amount: float  # Net revenue amount
+    event_type: str
+    event_id: str
+
+
+class CreateCommissionResponse(BaseModel):
+    success: bool
+    commissions_created: int
+    total_distributed: float
+    message: str
+
+
+# ============== MLM UTILITY FUNCTIONS ==============
+
+def generate_unique_referral_code() -> str:
+    """Generate a unique 8-character referral code"""
+    chars = string.ascii_uppercase + string.digits
+    return 'QTM' + ''.join(secrets.choice(chars) for _ in range(5))
+
+
+async def get_user_by_wallet(wallet: str) -> Optional[dict]:
+    """Get user by wallet address"""
+    return await users_collection.find_one(
+        {"wallet_public_key": wallet},
+        {"_id": 0}
+    )
+
+
+async def get_user_by_referral_code(code: str) -> Optional[dict]:
+    """Get user by referral code"""
+    return await users_collection.find_one(
+        {"referral_code": code.upper()},
+        {"_id": 0}
+    )
+
+
+async def create_affiliate_relations(new_user_wallet: str, referrer_wallet: str):
+    """
+    Create affiliate relations for all ancestors up to 5 levels.
+    When user B registers with referrer A:
+    - A is level 1 for B
+    - A's referrer is level 2 for B
+    - etc. up to level 5
+    """
+    current_ancestor = referrer_wallet
+    level = 1
+    
+    while current_ancestor and level <= MAX_AFFILIATE_LEVEL:
+        # Create relation
+        await affiliate_relations.insert_one({
+            "user_id": new_user_wallet,
+            "ancestor_id": current_ancestor,
+            "level": level,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        # Get next ancestor (referrer's referrer)
+        ancestor_user = await get_user_by_wallet(current_ancestor)
+        if ancestor_user and ancestor_user.get("referrer_id"):
+            current_ancestor = ancestor_user["referrer_id"]
+            level += 1
+        else:
+            break
+
+
+async def distribute_commissions(source_wallet: str, net_amount: float, event_type: str, event_id: str) -> tuple:
+    """
+    Distribute commissions to all ancestors based on MLM rates.
+    Returns (commissions_created, total_distributed)
+    """
+    # Get all ancestors of the source user
+    ancestors = await affiliate_relations.find(
+        {"user_id": source_wallet},
+        {"_id": 0}
+    ).to_list(length=MAX_AFFILIATE_LEVEL)
+    
+    if not ancestors:
+        return (0, 0.0)
+    
+    commissions_created = 0
+    total_distributed = 0.0
+    
+    for relation in ancestors:
+        level = relation["level"]
+        rate = COMMISSION_RATES.get(level, 0)
+        
+        if rate > 0:
+            commission_amount = net_amount * rate
+            
+            await affiliate_commissions.insert_one({
+                "commission_id": str(uuid.uuid4()),
+                "source_user_id": source_wallet,
+                "beneficiary_user_id": relation["ancestor_id"],
+                "level": level,
+                "percentage": rate * 100,  # Store as percentage (20, 10, etc.)
+                "amount": commission_amount,
+                "event_type": event_type,
+                "event_id": event_id,
+                "status": CommissionStatus.PENDING.value,
+                "created_at": datetime.now(timezone.utc)
+            })
+            
+            commissions_created += 1
+            total_distributed += commission_amount
+    
+    return (commissions_created, total_distributed)
 
 
 # ============== WALLET SESSION ENDPOINTS ==============
