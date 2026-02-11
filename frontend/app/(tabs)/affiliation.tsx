@@ -142,11 +142,11 @@ export default function Affiliation() {
   };
 
   const copyToClipboard = async (text: string, label: string) => {
-    try {
-      await Clipboard.setStringAsync(text);
-      Alert.alert('Copié !', `${label} copié dans le presse-papiers`);
-    } catch {
-      Alert.alert(label, text);
+    const success = await platformCopy(text);
+    if (success) {
+      showAlert('Copié !', `${label} copié dans le presse-papiers`);
+    } else {
+      showAlert(label, text);
     }
   };
 
