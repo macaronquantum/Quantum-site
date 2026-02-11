@@ -15,6 +15,7 @@ import {
   getQuantumBalance,
   getSolBalance,
   getUsdToEurRate,
+  getBalancesViaBackend,
   QUANTUM_PRICE_USD,
   TokenBalance,
 } from '../utils/solanaRpc';
