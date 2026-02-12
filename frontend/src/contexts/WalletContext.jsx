@@ -80,28 +80,32 @@ export function WalletProvider({ children }) {
     else { setQuantumBalance(null); setSolBalance(0); setUsdValue(0); setEurValue(0); }
   }, [connected, address, refreshBalances]);
 
+  const getPhantomProvider = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const provider = window.phantom?.solana || window.solana;
+    if (provider?.isPhantom) return provider;
+    return null;
+  }, []);
+
   const connectWallet = useCallback(async () => {
-    if (connected || connecting || connectCalled.current) {
-      if (connected) await refreshBalances();
-      return;
-    }
+    if (connected) { await refreshBalances(); return; }
+    if (connecting) return;
+
     const saved = getWallet();
     if (saved) { setWalletConnected(saved); return; }
 
-    connectCalled.current = true;
     setConnecting(true);
     setError(null);
 
     try {
-      const solana = window?.solana;
-      if (solana?.isPhantom) {
-        const resp = await solana.connect();
+      const provider = getPhantomProvider();
+      if (provider) {
+        const resp = await provider.connect();
         setWalletConnected(resp.publicKey.toString());
         return;
       }
       setError('NO_WALLET');
       setConnecting(false);
-      connectCalled.current = false;
     } catch (err) {
       if (err?.code === 4001) {
         setError('Connexion rejetee par utilisateur');
@@ -109,9 +113,8 @@ export function WalletProvider({ children }) {
         setError(err?.message || 'Erreur de connexion');
       }
       setConnecting(false);
-      connectCalled.current = false;
     }
-  }, [connected, connecting, refreshBalances, setWalletConnected]);
+  }, [connected, connecting, refreshBalances, setWalletConnected, getPhantomProvider]);
 
   const disconnectWallet = useCallback(async () => {
     try { if (window?.solana?.disconnect) await window.solana.disconnect(); } catch (e) {}
