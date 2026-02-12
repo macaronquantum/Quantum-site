@@ -158,6 +158,44 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      {/* No Wallet Modal */}
+      {walletError && (
+        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center px-4" onClick={() => clearError()} data-testid="no-wallet-modal">
+          <div className="bg-surface-elevated border border-border rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                <AlertCircle size={20} className="text-warning" />
+              </div>
+              <div>
+                <p className="font-bold text-text-primary text-sm">Wallet non detecte</p>
+                <p className="text-xs text-text-secondary">Extension Phantom requise</p>
+              </div>
+            </div>
+            <p className="text-sm text-text-secondary mb-5">
+              Pour connecter votre wallet, installez l'extension Phantom pour votre navigateur.
+            </p>
+            <div className="flex gap-3">
+              <a
+                href="https://phantom.app/download"
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold shadow-[0_0_16px_rgba(139,92,246,0.3)]"
+                data-testid="install-phantom-btn"
+              >
+                <Download size={16} /> Installer Phantom
+              </a>
+              <button
+                onClick={clearError}
+                className="px-4 py-2.5 rounded-xl bg-surface border border-border text-text-secondary text-sm hover:bg-surface-hover transition-colors"
+                data-testid="close-wallet-modal-btn"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
