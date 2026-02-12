@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
-import { Menu, X, Wallet, ChevronDown, LogOut, Copy, Check } from 'lucide-react';
+import { Menu, X, Wallet, ChevronDown, LogOut, Copy, Check, Download, AlertCircle } from 'lucide-react';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Accueil' },
@@ -13,10 +13,11 @@ const NAV_ITEMS = [
 ];
 
 export default function Navbar() {
-  const { connected, address, connecting, connectWallet, disconnectWallet, clearError } = useWallet();
+  const { connected, address, connecting, connectWallet, disconnectWallet, error, clearError } = useWallet();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [walletDropdown, setWalletDropdown] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
   const location = useLocation();
 
   const formatAddr = (a) => `${a.slice(0, 4)}...${a.slice(-4)}`;
@@ -28,10 +29,13 @@ export default function Navbar() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleConnect = () => {
+  const handleConnect = async () => {
     clearError();
-    connectWallet();
+    await connectWallet();
   };
+
+  // Show modal when error is NO_WALLET
+  const walletError = error === 'NO_WALLET';
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-bg/80 backdrop-blur-xl" data-testid="navbar">
