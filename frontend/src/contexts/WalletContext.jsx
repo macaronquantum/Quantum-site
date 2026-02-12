@@ -117,7 +117,10 @@ export function WalletProvider({ children }) {
   }, [connected, connecting, refreshBalances, setWalletConnected, getPhantomProvider]);
 
   const disconnectWallet = useCallback(async () => {
-    try { if (window?.solana?.disconnect) await window.solana.disconnect(); } catch (e) {}
+    try {
+      const provider = getPhantomProvider();
+      if (provider?.disconnect) await provider.disconnect();
+    } catch (e) {}
     setConnected(false);
     setAddress(null);
     setQuantumBalance(null);
@@ -125,9 +128,8 @@ export function WalletProvider({ children }) {
     setUsdValue(0);
     setEurValue(0);
     setError(null);
-    connectCalled.current = false;
     clearWalletStorage();
-  }, []);
+  }, [getPhantomProvider]);
 
   const votingPower = quantumBalance ? Math.floor(quantumBalance.amount) : 0;
 
