@@ -1,57 +1,99 @@
-# Quantum DAO - PRD
+# Quantum IA - Web Application
 
-## What's Implemented
-- [x] Wallet Phantom connection
-- [x] Balance Quantum on-chain via backend proxy (9,924,000 QTM)
-- [x] Balance SOL + conversion USD/EUR
-- [x] Prix Quantum = $0.20 (pre-TGE)
-- [x] Payment gateway: Card2Crypto (replaces Stripe) - USDC Polygon payout
-- [x] MLM 5 niveaux (L1=20%, L2=10%, L3=5%, L4=2.5%, L5=1%)
-- [x] Dashboard affiliation avec detail par niveau
-- [x] Notifications in-app auto
-- [x] Copy buttons cross-platform (web + native)
-- [x] Cross-platform alerts
-- [x] Presale progress = valeur totale wallet on-chain en USD (cache 2h)
-- [x] Holders = getTokenLargestAccounts on-chain (fallback MongoDB)
-- [x] Lien Solscan sous Holdings sur page Portfolio
-- [x] CTA marketing banner
-- [x] Backend proxy Solana balance
+## Product Requirements
 
-## Architecture
-- Frontend: Expo Router (Web), Backend: FastAPI + MongoDB
-- Solana Mainnet via backend RPC proxy (rate-limit safe)
-- QUANTUM_MINT = 4KsZXRH3Xjd7z4CiuwgfNQstC2aHDLdJHv5u3tDixtLc
-- WALLET = 2ebxzttJ5zyLme4cBBHD8hKkVho4tJ13tUUWu3B3aG5i
+### Original Problem Statement
+Transform the existing Quantum IA React Native/Expo mobile app into a fully responsive web application while keeping 100% of existing features, logic, and integrations. Same backend, same data, same blockchain interactions.
 
-## Key Files
-- /app/backend/server.py - API + on-chain presale logic
-- /app/frontend/utils/solanaRpc.ts - RPC proxy + constants
-- /app/frontend/utils/platform.ts - Cross-platform utils
-- /app/frontend/contexts/WalletContext.tsx - Wallet + balances
-- /app/frontend/app/(tabs)/portfolio.tsx - Portfolio + Solscan link
-- /app/frontend/app/(tabs)/presale.tsx - Presale form
-- /app/frontend/app/(tabs)/affiliation.tsx - MLM Dashboard
-- /app/frontend/app/(tabs)/profile.tsx - Profile + Notifications
+### Architecture
+- **Frontend:** React + Vite + Tailwind CSS v4
+- **Backend:** FastAPI (Python) - unchanged from mobile app
+- **Database:** MongoDB
+- **Blockchain:** Solana (Phantom wallet)
+- **Payments:** Card2Crypto (USDC on Polygon)
 
-## Presale Progress Logic
-total_raised = SOL_balance * SOL_price + QTM_balance * $0.20 + USDC + USDT
-participants = getTokenLargestAccounts (on-chain, fallback MongoDB)
-Cache TTL = 2 hours
+### Tech Stack
+- React 19 + React Router v7
+- Vite 7 (build tool)
+- Tailwind CSS v4 with custom `@theme` tokens
+- Axios for API calls
+- Lucide React for icons
+
+### Pages
+1. **Landing Page** - Marketing-first with hero, value props, trust section, presale progress, CTA
+2. **Presale** - Purchase form (Card/Crypto), real-time progress, referral code support
+3. **Portfolio** - Wallet balances (QTM, SOL), USD/EUR values, on-chain info
+4. **Affiliation** - MLM 5-level system, referral codes, commission tracking
+5. **Opportunities** - AI investment opportunities with voting
+6. **Profile** - Settings, notifications, wallet management
+
+### Design System
+- Background: #0A0A0A (dark)
+- Surface: #151515
+- Primary: #8B5CF6 (violet)
+- Premium, clean, crypto-native aesthetic
+- Font: Inter
+
+### API Endpoints (Backend - unchanged)
+- `GET /api/config` - App configuration
+- `GET /api/presale/progress` - Presale progress data
+- `POST /api/presale/purchase` - Create Card2Crypto payment
+- `GET /api/presale/status/{id}` - Payment status
+- `GET /api/affiliate/{wallet}/stats` - Affiliate stats
+- `GET /api/affiliate/config` - Commission rates
+- `GET /api/affiliate/{wallet}/tree` - Referral tree
+- `GET /api/affiliate/{wallet}/level/{level}/transactions` - Level transactions
+- `POST /api/affiliate/register` - Register affiliate
+- `GET /api/solana/balance/{wallet}` - Wallet balances
+- `GET /api/notifications/{wallet}` - Notifications
+- `POST /api/notifications/{wallet}/mark-read` - Mark read
+- `DELETE /api/notifications/{wallet}/clear` - Clear notifications
+
+## What's Been Implemented (Feb 12, 2026)
+
+### Completed
+- Full React + Vite web app replacing Expo mobile app
+- All 6 pages with full feature parity
+- Responsive design (mobile 375px, tablet 768px, desktop 1920px)
+- Hamburger menu for mobile navigation
+- Phantom wallet integration for web (browser extension)
+- Real-time presale progress from backend API
+- Card2Crypto payment flow (card + crypto)
+- MLM 5-level affiliation system with commission tracking
+- Referral code support via URL params (?ref=CODE)
+- Production build ready (yarn build -> dist/)
+- Deployment configs: vercel.json, _redirects (Netlify), nginx.conf
+- Dark theme with violet accent matching mobile app design
+
+### Testing Results
+- Iteration 6: 100% frontend pass (11/11 features)
+- Iteration 7: 100% frontend pass (14/14 features)
+- All API endpoints verified working
+- Responsive layout verified on 3 breakpoints
+
+## Deployment Guide
+
+### Quick Deploy (Vercel)
+1. `yarn build` -> generates `dist/` folder
+2. Push to GitHub
+3. Connect repo to Vercel
+4. Set env var: `VITE_BACKEND_URL=https://your-backend-domain`
+5. Deploy
+
+### VPS/Nginx
+1. `yarn build`
+2. Copy `dist/` to server
+3. Use provided `nginx.conf` template
+4. Point domain to server
+
+### Netlify
+1. Build command: `yarn build`
+2. Publish directory: `dist`
+3. `_redirects` file included for SPA routing
 
 ## Backlog
-- [ ] Dashboard admin (P1)
-- [ ] Expo Push Notifications natives (P1)
-- [ ] Paid RPC endpoint pour fiabilite (P1)
-- [ ] Arbre visuel affiliation (P2)
-- [ ] Refactoring server.py (P2)
-
-## Recent Fixes
-- [x] Expo Go connection issue resolved (EXPO_PACKAGER_PROXY_URL)
-- [x] Wallet connect crash: `Linking.createURL` from `expo-linking` instead of `react-native`
-- [x] Wallet connect native: `Linking.openURL` opens Phantom app (not website) + URL listener for callback
-- [x] Unmatched Route fix: created `phantom-callback.tsx` route + fixed double `--` in redirect URL
-- [x] Pre-deploy polish: tab bar alignment, CTA glow effects, presale fallback price $0.20
-- [x] Card2Crypto integration: replaces Stripe for card payments. Payout wallet: 0xA4014c46D420409b5Ef2eb9862a64F74690863C7
-
-## Testing: 39/39 backend PASS, frontend verified, all APIs returning correct data
-## Last Updated: 2026-02-15
+- P1: Admin dashboard (compatible with same backend)
+- P2: Swap functionality page
+- P2: Transaction history page
+- P3: Analytics integration
+- P3: SEO optimization (meta tags per page)
