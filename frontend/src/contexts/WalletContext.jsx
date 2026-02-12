@@ -27,7 +27,7 @@ export function WalletProvider({ children }) {
   const [eurValue, setEurValue] = useState(0);
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
-  const connectCalled = useRef(false);
+  const connectCalled = useRef(false); // kept for backwards compat
 
   const clearError = useCallback(() => setError(null), []);
 
