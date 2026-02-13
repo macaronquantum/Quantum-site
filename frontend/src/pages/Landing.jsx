@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { getPresaleProgress, getAffiliateConfig } from '../utils/api';
-import { Zap, Shield, Users, TrendingUp, ArrowRight, Wallet, ChevronRight, Globe, BarChart3, Lock } from 'lucide-react';
+import { Zap, Shield, Users, TrendingUp, ArrowRight, Wallet, ChevronRight, Globe, BarChart3, Lock, FileText } from 'lucide-react';
+
+const WHITEPAPER_URL = 'https://customer-assets.emergentagent.com/job_d250e654-81d2-4281-9f8c-17d7ab214687/artifacts/wiexcfs8_Quantum%20IA%20Whitepaper%20v1.1.pdf.pdf.pdf';
 
 export default function Landing() {
   const { connected, connectWallet, clearError, connecting } = useWallet();
@@ -198,6 +200,31 @@ export default function Landing() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Whitepaper */}
+      <section className="py-20 lg:py-28 border-t border-border" data-testid="whitepaper-section">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+            <FileText size={28} className="text-primary" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-text-primary mb-4">
+            En savoir plus sur Quantum IA
+          </h2>
+          <p className="text-text-secondary mb-8 max-w-xl mx-auto">
+            Decouvrez notre vision, la technologie et la tokenomics dans le White Paper officiel.
+          </p>
+          <a
+            href={WHITEPAPER_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-surface border border-primary/30 hover:border-primary text-primary font-semibold text-base transition-all duration-200 hover:bg-primary/5"
+            data-testid="read-whitepaper-btn"
+          >
+            <FileText size={18} />
+            Read the White Paper
+          </a>
         </div>
       </section>
 
