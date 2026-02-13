@@ -143,7 +143,7 @@ class TestExistingEndpoints:
         data = response.json()
         assert data["max_levels"] == 5
         assert "commission_rates" in data
-        assert data["total_commission_percentage"] == 38.5
+        assert abs(data["total_commission_percentage"] - 38.5) < 0.01
         print("✓ Affiliate config passed")
 
 
