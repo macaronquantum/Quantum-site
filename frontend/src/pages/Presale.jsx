@@ -91,8 +91,8 @@ export default function Presale() {
     <div className="max-w-2xl mx-auto px-4 py-10" data-testid="presale-page">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4">
-          <span className="text-white font-bold text-lg">Q</span>
+        <div className="w-12 h-12 rounded-2xl overflow-hidden mx-auto mb-4">
+          <img src="/logo.png" alt="Quantum IA" className="w-full h-full object-cover" />
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-text-primary mb-2">QUANTUM Pre-Sale</h1>
         <p className="text-sm text-text-secondary">Allocation anticipee a prix exclusif</p>

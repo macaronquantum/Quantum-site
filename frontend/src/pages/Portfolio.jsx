@@ -147,7 +147,9 @@ export default function Portfolio() {
         <h2 className="text-sm font-semibold text-text-primary mb-3">Holdings</h2>
         <div className="bg-surface border border-border rounded-2xl p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-sm">Q</div>
+            <div className="w-10 h-10 rounded-xl overflow-hidden">
+              <img src="/logo.png" alt="Quantum IA" className="w-full h-full object-cover" />
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-text-primary">Quantum</p>
               <p className="text-xs text-text-tertiary">QTM</p>

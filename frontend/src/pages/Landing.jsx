@@ -253,8 +253,8 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-                <span className="text-white font-bold text-xs">Q</span>
+              <div className="w-7 h-7 rounded-md overflow-hidden">
+                <img src="/logo.png" alt="Quantum IA" className="w-full h-full object-cover" />
               </div>
               <span className="text-sm text-text-secondary">Quantum IA - v1.0.0</span>
             </div>
