@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+
 
 echo "Starting application..."
 
@@ -9,4 +9,3 @@ npm run build
 
 # Lancer le backend
 cd ../backend
-python3 main.py
