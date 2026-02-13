@@ -8,7 +8,7 @@ import json
 
 def test_stripe_endpoints():
     """Test additional Stripe-related endpoints"""
-    base_url = "https://fiat-to-usdc.preview.emergentagent.com/api"
+    base_url = "https://deep-link-wallet.preview.emergentagent.com/api"
     session = requests.Session()
     session.timeout = 10
     
