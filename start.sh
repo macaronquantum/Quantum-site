@@ -1,11 +1,12 @@
+#!/bin/sh
 
+echo "===== STARTING APPLICATION ====="
 
-echo "Starting application..."
-
-# Installer les dépendances frontend
-cd frontend
+echo "Installing dependencies..."
 npm install
+
+echo "Building frontend..."
 npm run build
 
-# Lancer le backend
-cd ../backend
+echo "Starting application..."
+npm run start
