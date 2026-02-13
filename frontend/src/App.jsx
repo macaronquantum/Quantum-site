@@ -7,6 +7,7 @@ import Portfolio from './pages/Portfolio';
 import Affiliation from './pages/Affiliation';
 import Opportunities from './pages/Opportunities';
 import Profile from './pages/Profile';
+import ConnectCallback from './pages/ConnectCallback';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="/affiliation" element={<Affiliation />} />
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/connect/:sid" element={<ConnectCallback />} />
         </Routes>
       </main>
     </div>
