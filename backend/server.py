@@ -973,14 +973,14 @@ async def get_spl_token_usd_value(mint: str, amount: float) -> float:
 
 
 @app.get("/api/presale/progress")
-async def get_presale_progress():
+async def get_presale_progress(refresh: bool = False):
     """Get presale progress from on-chain wallet balance (cached 2h)"""
     global _presale_onchain_cache, _presale_cache_ts
 
     import time
     now = time.time()
 
-    if _presale_onchain_cache and (now - _presale_cache_ts) < PRESALE_CACHE_TTL:
+    if not refresh and _presale_onchain_cache and (now - _presale_cache_ts) < PRESALE_CACHE_TTL:
         return _presale_onchain_cache
 
     # Get total wallet value (simple, fast: 2-3 RPC calls)
