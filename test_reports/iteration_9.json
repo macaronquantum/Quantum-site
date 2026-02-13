@@ -1,0 +1,101 @@
+{
+  "summary": "Iteration 9 - Bug fix verification for 3 issues: 1) Presale progress API now returns ~$1K+ (not $5) with Binance fallback for SOL price working, 2) Profile toggle switches properly aligned on mobile/tablet/desktop (44x24px consistent), 3) Whitepaper section with 'Read the White Paper' button added to Landing page with correct PDF link.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_presale_progress_iteration9.py",
+    "/app/test_reports/pytest/pytest_results_iteration9.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SOL price fallback: CoinGecko → Binance API working correctly (lines 836-858 in server.py)",
+    "Presale progress endpoint returns correct total_raised from wallet balance",
+    "Toggle CSS uses flexbox (w-11 h-6 rounded-full flex items-center px-0.5) - properly aligned at all viewports",
+    "Whitepaper section added with correct URL and data-testid attributes"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_presale_progress_iteration9.py"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7 tests passed)",
+    "frontend": "100% (all bug fixes verified)"
+  },
+  "test_credentials": "No auth required",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "3 bug fixes verified: 1) SOL price API has Binance fallback - presale shows ~$1K+ instead of $5 2) Toggle switches use flexbox for proper alignment 3) Whitepaper section on Landing page. All pages load: /, /presale, /portfolio, /affiliation, /opportunities, /profile. Wallet modal shows 2 options.",
+  "test_results": {
+    "bug_fixes_verified": {
+      "presale_progress_api": {
+        "status": "FIXED",
+        "before": "$5 (SOL price was 0 due to CoinGecko rate limits)",
+        "after": "$1021.15 (Binance fallback returns sol_price_usd=$78.13)",
+        "api_response": {
+          "total_raised": 1021.15,
+          "sol_price_usd": 78.13,
+          "sol_balance": 13.0083,
+          "participants": 5
+        }
+      },
+      "toggle_alignment": {
+        "status": "FIXED",
+        "desktop_1920px": "Toggle 44x24px - aligned correctly",
+        "tablet_768px": "Toggle 44x24px - aligned correctly",
+        "mobile_375px": "Toggle 44x24px - aligned correctly",
+        "css_implementation": "Flexbox with w-11 h-6 px-0.5 - white dot contained in track"
+      },
+      "whitepaper_button": {
+        "status": "IMPLEMENTED",
+        "section_exists": true,
+        "button_text": "Read the White Paper",
+        "href": "https://customer-assets.emergentagent.com/job_d250e654-81d2-4281-9f8c-17d7ab214687/artifacts/wiexcfs8_Quantum%20IA%20Whitepaper%20v1.1.pdf.pdf.pdf",
+        "data_testid": "read-whitepaper-btn"
+      }
+    },
+    "backend_tests": {
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "tests": [
+        "test_presale_progress_returns_correct_raised - PASS",
+        "test_presale_progress_sol_price_not_zero - PASS",
+        "test_presale_progress_with_refresh - PASS",
+        "test_presale_progress_structure - PASS",
+        "test_health_check - PASS",
+        "test_config - PASS",
+        "test_affiliate_config - PASS"
+      ]
+    },
+    "frontend_tests": {
+      "landing_page": {
+        "status": "PASS",
+        "presale_progress_card": "Shows $1K (not $5)",
+        "whitepaper_section": "Present with correct button"
+      },
+      "presale_page": {
+        "status": "PASS",
+        "presale_progress": "Shows $1K (not $5)"
+      },
+      "profile_page_toggles": {
+        "status": "PASS",
+        "toggle_alignment": "Consistent 44x24px at all viewport sizes"
+      },
+      "navigation": {
+        "status": "PASS",
+        "paths_tested": ["/", "/presale", "/portfolio", "/affiliation", "/opportunities", "/profile"]
+      },
+      "wallet_modal": {
+        "status": "PASS",
+        "options": ["Ouvrir l'app Phantom", "Installer l'extension"]
+      }
+    }
+  }
+}
