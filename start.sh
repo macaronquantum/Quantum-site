@@ -2,29 +2,25 @@
 
 echo "===== STARTING APPLICATION ====="
 
-# 1️⃣ Installer backend
-echo "Installing backend dependencies..."
+# Backend
 cd backend
 if [ -f package.json ]; then
   npm install
 fi
 cd ..
 
-# 2️⃣ Installer frontend et build
-echo "Installing frontend dependencies..."
+# Frontend
 cd frontend
 npm install
-echo "Building frontend..."
 npm run build
 cd ..
 
-# 3️⃣ Démarrer backend
-echo "Starting backend..."
+# Start backend
 cd backend
 if [ -f package.json ]; then
   npm start
-elif [ -f app.py ]; then
-  python3 app.py
+elif [ -f serveur.py ]; then
+  python3 serveur.py
 else
   echo "No start command found for backend"
 fi
