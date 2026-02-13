@@ -17,4 +17,23 @@ export default defineConfig({
       buffer: 'buffer',
     },
   },
+  build: {
+    target: 'es2020',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          crypto: ['tweetnacl', 'bs58', 'buffer'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })
