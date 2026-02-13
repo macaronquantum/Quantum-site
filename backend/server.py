@@ -818,19 +818,45 @@ class PresaleConfigUpdate(BaseModel):
 _presale_onchain_cache: Dict = {}
 _presale_cache_ts: float = 0
 PRESALE_CACHE_TTL = 7200  # 2 hours
+_sol_price_cache: float = 0
+_sol_price_cache_ts: float = 0
+SOL_PRICE_CACHE_TTL = 300  # 5 min
 
 
 async def get_sol_price_usd() -> float:
-    """Get current SOL price in USD from CoinGecko"""
+    """Get current SOL price in USD with fallback APIs and caching"""
+    global _sol_price_cache, _sol_price_cache_ts
+    import time
+    now = time.time()
+    if _sol_price_cache > 0 and (now - _sol_price_cache_ts) < SOL_PRICE_CACHE_TTL:
+        return _sol_price_cache
+
+    price = 0
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(
                 "https://api.coingecko.com/api/v3/simple/price",
                 params={"ids": "solana", "vs_currencies": "usd"},
             )
-            return resp.json().get("solana", {}).get("usd", 0)
+            price = resp.json().get("solana", {}).get("usd", 0)
     except Exception:
-        return 0
+        pass
+
+    if not price:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get("https://price.jup.ag/v6/price?ids=SOL")
+                price = resp.json().get("data", {}).get("SOL", {}).get("price", 0)
+        except Exception:
+            pass
+
+    if price and price > 0:
+        _sol_price_cache = price
+        _sol_price_cache_ts = now
+    elif _sol_price_cache > 0:
+        return _sol_price_cache
+
+    return price
 
 
 async def get_token_holders_count() -> int:

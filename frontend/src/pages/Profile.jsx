@@ -192,8 +192,12 @@ function ToggleRow({ icon: Icon, label, value, onChange }) {
   return (
     <div className="flex items-center justify-between px-4 py-4">
       <div className="flex items-center gap-3"><Icon size={16} className="text-text-secondary" /><span className="text-sm text-text-primary">{label}</span></div>
-      <button onClick={() => onChange(!value)} className={`w-10 h-6 rounded-full transition-colors relative ${value ? 'bg-primary' : 'bg-surface-elevated'}`}>
-        <span className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${value ? 'bg-white translate-x-5' : 'bg-text-tertiary translate-x-1'}`} />
+      <button
+        onClick={() => onChange(!value)}
+        className={`w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${value ? 'bg-primary' : 'bg-surface-elevated'}`}
+        data-testid={`toggle-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      >
+        <span className={`w-5 h-5 rounded-full transition-transform duration-200 ${value ? 'bg-white translate-x-5' : 'bg-text-tertiary translate-x-0'}`} />
       </button>
     </div>
   );
