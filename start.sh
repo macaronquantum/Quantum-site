@@ -3,7 +3,7 @@
 echo "===== STARTING APPLICATION ====="
 
 echo "Installing dependencies..."
-npm install
+npm install  # <-- PAS npm ci
 
 echo "Building frontend..."
 npm run build
