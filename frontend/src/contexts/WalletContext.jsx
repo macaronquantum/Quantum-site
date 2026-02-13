@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getSolanaBalance } from '../utils/api';
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
+import { Buffer } from 'buffer';
 
 const WALLET_KEY = 'quantum_wallet';
 const QUANTUM_PRICE_USD = 0.20;
+const API_URL = import.meta.env.VITE_BACKEND_URL || '';
 
 function saveWallet(address) {
   try { localStorage.setItem(WALLET_KEY, address); } catch (e) {}
@@ -12,6 +16,18 @@ function getWallet() {
 }
 function clearWalletStorage() {
   try { localStorage.removeItem(WALLET_KEY); } catch (e) {}
+}
+
+function isMobileDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+function getPhantomProvider() {
+  if (typeof window === 'undefined') return null;
+  const provider = window.phantom?.solana || window.solana;
+  if (provider?.isPhantom) return provider;
+  return null;
 }
 
 const WalletContext = createContext(null);
@@ -27,7 +43,6 @@ export function WalletProvider({ children }) {
   const [eurValue, setEurValue] = useState(0);
   const [eurRate, setEurRate] = useState(0.92);
   const [loadingBalances, setLoadingBalances] = useState(false);
-  const connectCalled = useRef(false); // kept for backwards compat
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -36,7 +51,13 @@ export function WalletProvider({ children }) {
     setAddress(addr);
     setConnected(true);
     setConnecting(false);
-    connectCalled.current = false;
+  }, []);
+
+  const setConnectedAddress = useCallback((addr) => {
+    saveWallet(addr);
+    setAddress(addr);
+    setConnected(true);
+    setConnecting(false);
   }, []);
 
   useEffect(() => {
@@ -80,11 +101,42 @@ export function WalletProvider({ children }) {
     else { setQuantumBalance(null); setSolBalance(0); setUsdValue(0); setEurValue(0); }
   }, [connected, address, refreshBalances]);
 
-  const getPhantomProvider = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    const provider = window.phantom?.solana || window.solana;
-    if (provider?.isPhantom) return provider;
-    return null;
+  const connectViaExtension = useCallback(async () => {
+    const provider = getPhantomProvider();
+    if (!provider) return false;
+    const resp = await provider.connect();
+    setWalletConnected(resp.publicKey.toString());
+    return true;
+  }, [setWalletConnected]);
+
+  const connectViaDeepLink = useCallback(async () => {
+    const kp = nacl.box.keyPair();
+    const dappPubKey = bs58.encode(kp.publicKey);
+    const keypairJson = JSON.stringify({
+      pub: Array.from(kp.publicKey),
+      sec: Array.from(kp.secretKey),
+    });
+
+    const response = await fetch(`${API_URL}/api/wallet/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keypair: keypairJson }),
+    });
+
+    if (!response.ok) throw new Error('Erreur serveur: impossible de creer la session');
+
+    const { session_id } = await response.json();
+    const baseUrl = window.location.origin;
+    const redirectUrl = `${baseUrl}/connect/${session_id}`;
+
+    const phantomParams = new URLSearchParams({
+      dapp_encryption_public_key: dappPubKey,
+      cluster: 'mainnet-beta',
+      app_url: baseUrl,
+      redirect_link: redirectUrl,
+    });
+
+    window.location.href = `https://phantom.app/ul/v1/connect?${phantomParams.toString()}`;
   }, []);
 
   const connectWallet = useCallback(async () => {
@@ -98,12 +150,20 @@ export function WalletProvider({ children }) {
     setError(null);
 
     try {
+      const mobile = isMobileDevice();
+
+      if (mobile) {
+        await connectViaDeepLink();
+        return;
+      }
+
       const provider = getPhantomProvider();
       if (provider) {
         const resp = await provider.connect();
         setWalletConnected(resp.publicKey.toString());
         return;
       }
+
       setError('NO_WALLET');
       setConnecting(false);
     } catch (err) {
@@ -114,7 +174,18 @@ export function WalletProvider({ children }) {
       }
       setConnecting(false);
     }
-  }, [connected, connecting, refreshBalances, setWalletConnected, getPhantomProvider]);
+  }, [connected, connecting, refreshBalances, setWalletConnected, connectViaDeepLink]);
+
+  const connectWalletDeepLink = useCallback(async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      await connectViaDeepLink();
+    } catch (err) {
+      setError(err?.message || 'Erreur de connexion');
+      setConnecting(false);
+    }
+  }, [connectViaDeepLink]);
 
   const disconnectWallet = useCallback(async () => {
     try {
@@ -129,7 +200,7 @@ export function WalletProvider({ children }) {
     setEurValue(0);
     setError(null);
     clearWalletStorage();
-  }, [getPhantomProvider]);
+  }, []);
 
   const votingPower = quantumBalance ? Math.floor(quantumBalance.amount) : 0;
 
@@ -137,7 +208,8 @@ export function WalletProvider({ children }) {
     <WalletContext.Provider value={{
       connected, address, connecting, quantumBalance, solBalance,
       usdValue, eurValue, eurRate, loadingBalances, votingPower,
-      error, clearError, connectWallet, disconnectWallet, refreshBalances,
+      error, clearError, connectWallet, connectWalletDeepLink,
+      disconnectWallet, refreshBalances, setConnectedAddress, isMobile: isMobileDevice,
     }}>
       {children}
     </WalletContext.Provider>
