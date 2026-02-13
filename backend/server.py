@@ -845,8 +845,8 @@ async def get_sol_price_usd() -> float:
     if not price:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get("https://price.jup.ag/v6/price?ids=SOL")
-                price = resp.json().get("data", {}).get("SOL", {}).get("price", 0)
+                resp = await client.get("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT")
+                price = float(resp.json().get("price", 0))
         except Exception:
             pass
 
