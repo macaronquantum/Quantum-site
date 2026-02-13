@@ -1,8 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
 export default defineConfig({
+  root: '.',  // . = dossier où se trouve vite.config.js (frontend/)
+  base: './', // chemins relatifs
   plugins: [react(), tailwindcss()],
   server: {
     host: '0.0.0.0',
@@ -27,6 +25,7 @@ export default defineConfig({
       },
     },
     rollupOptions: {
+      input: 'index.html', // Important pour que Vite sache quoi builder
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
@@ -35,5 +34,6 @@ export default defineConfig({
       },
     },
     chunkSizeWarningLimit: 600,
+    outDir: 'dist', // dossier final pour Railway
   },
 })
