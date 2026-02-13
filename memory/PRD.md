@@ -4,42 +4,33 @@
 Transform the existing Quantum IA React Native/Expo mobile app into a responsive React web application. Same backend, features, logic, design.
 
 ## Architecture
-- **Frontend:** React 19 + Vite 7 + Tailwind CSS v4
-- **Backend:** FastAPI (Python) - unchanged
-- **Database:** MongoDB
-- **Blockchain:** Solana (Phantom wallet)
+- **Frontend:** React 19 + Vite 7 + Tailwind CSS v4 (standalone, deployable on Railway/Vercel)
+- **Backend:** FastAPI (Python) with uvicorn (standalone, deployable on Railway)
+- **Database:** MongoDB (external, e.g. MongoDB Atlas)
 
-## Pages
-1. Landing (hero, value props, presale progress, whitepaper, CTA)
-2. Presale (purchase, progress, referrals)
-3. Portfolio (balances QTM/SOL/USD/EUR)
-4. Affiliation (MLM 5-level, commissions)
-5. Opportunities (AI investments, voting)
-6. Profile (settings, notifications)
-7. Connect Callback `/connect/:sid` (Phantom deep-link)
+## Deployment
 
-## Wallet Flow
-- Desktop + extension: direct popup
-- Desktop no extension: modal (deep-link + install)
-- Mobile: auto deep-link → Phantom app → callback
+### Backend (Railway)
+- Detected via `requirements.txt` + `Procfile`
+- `Procfile`: `web: uvicorn server:app --host 0.0.0.0 --port $PORT`
+- Env vars to set: `MONGO_URL`, `DB_NAME`, `PORT` (auto by Railway)
 
-## Implemented (Feb 12-13, 2026)
-- Full web app, all pages, responsive
-- Wallet: extension + deep-link (mobile & desktop)
+### Frontend (Railway or Vercel)
+- `build`: `vite build` → `dist/`
+- `start`: `vite preview --host 0.0.0.0 --port $PORT`
+- Env var: `VITE_BACKEND_URL=https://your-backend.railway.app`
+- Also deployable on Vercel (vercel.json included) or Netlify (_redirects included)
+
+## Implemented
+- Full web app with 7 pages (Landing, Presale, Portfolio, Affiliation, Opportunities, Profile, Connect Callback)
+- Wallet: Phantom extension + deep-link (mobile & desktop)
 - SOL price: CoinGecko + Binance fallback
-- Custom logo (all instances)
-- Lazy loading (React.lazy)
-- Vite build: terser, manual chunks, preconnect
-- Whitepaper download button
-- Toggle CSS fix (flexbox)
+- Custom logo, lazy loading, terser build, preconnect
 - Build: ~130KB gzipped
 
-## Testing
-- Iter 8: Wallet deep-link 100%
-- Iter 9: Bug fixes 100%
-- Iter 10: Logo + perf 100%
+## Testing: All iterations passed (1-10)
 
 ## Backlog
 - P1: Admin dashboard
 - P2: Swap page, transaction history
-- P3: Analytics, SEO meta tags
+- P3: Analytics, SEO
